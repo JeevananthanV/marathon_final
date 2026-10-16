@@ -1,0 +1,6 @@
+{
+  "framework": null,
+  "buildCommand": "npx vite build",
+  "outputDirectory": ".vercel/output",
+  "installCommand": "npm install"
+}

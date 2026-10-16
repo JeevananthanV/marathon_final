@@ -1,0 +1,63 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build outputs
+dist/
+build/
+.output/
+.vinxi/
+.nitro/
+
+# Environment variables - NEVER commit these
+.env
+.env.local
+.env.*.local
+.env.production
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# TypeScript
+*.tsbuildinfo
+
+# Optional caches
+.eslintcache
+.stylelintcache
+
+# Test coverage
+coverage/
+
+# Lock files (keep package-lock.json or bun.lock, not both)
+# bun.lock
+
+# Local database files - NEVER commit these
+backend/pglite-data/
+backend/marathon.db
+backend/.env
+backend/backend.log
+backend/frontend.log
+backend/whatsapp-qr.png
+backend/*.out
+backend/*.err

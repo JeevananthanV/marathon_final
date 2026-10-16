@@ -1,0 +1,40 @@
+PROJECT: RUN BEYOND LIMITS 2026 (Marathon Website)
+WEBSITE LINK: https://marathon-website-five.vercel.app/
+
+WHAT IS THIS WEBSITE?
+This is a website to register for the "Run Beyond Limits 2026" Marathon. 
+- Runners can register and download their certificates.
+- Event Organizers (Admins) can track all registrations and payments.
+
+--------------------------------------------------
+
+PART 1: FOR RUNNERS (How to Register)
+
+Step 1: Go to the website link.
+Step 2: Click on "Register Now".
+Step 3: Fill your details (Name, Phone number, Email).
+Step 4: Choose your City (Chennai, Bengaluru, Salem).
+Step 5: Choose your Run Category (5K, 10K, or 21K) and T-Shirt size.
+Step 6: Pay the fee.
+
+After Payment:
+Once paid, you will get an Email with your BIB Number and a PDF Certificate!
+
+How to Download Your Certificate Again:
+Just click "Download Certificate" on the website and enter your email or phone number.
+
+--------------------------------------------------
+
+PART 2: FOR ADMINS (How to Manage the Event)
+
+Step 1: Go to the Admin Page: https://marathon-website-five.vercel.app/admin
+Step 2: Login using:
+        Username: admin
+        Password: password123
+Step 3: Inside the dashboard, you can see how many people registered and how much money was collected.
+Step 4: Go to "Participants" to see the list of runners. 
+Step 5: You can Approve their payments here. Once you click "Approve", the runner automatically gets their BIB Number and Email Certificate!
+Step 6: You can also download all participants' data as an Excel file.
+
+--------------------------------------------------
+If you need any technical help, please contact the developer.
