@@ -61,3 +61,6 @@ backend/frontend.log
 backend/whatsapp-qr.png
 backend/*.out
 backend/*.err
+
+# whatsapp-web.js session (contains auth tokens)
+backend/.wwebjs_auth/

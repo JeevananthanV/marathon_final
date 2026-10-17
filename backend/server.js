@@ -8,9 +8,6 @@ import PDFDocument from "pdfkit";
 import nodemailer from "nodemailer";
 import QRCode from "qrcode";
 import twilio from "twilio";
-import pkg from "whatsapp-web.js";
-const { Client, LocalAuth } = pkg;
-import qrcodeTerminal from "qrcode-terminal";
 import fs from "fs";
 import { z } from "zod";
 import rateLimit from "express-rate-limit";
@@ -21,8 +18,9 @@ import {
   sendWhatsAppMessage,
   sendRegistrationWhatsApp,
   sendPaymentWhatsApp,
-  isWhatsAppConfigured,
-  activeProvider,
+  getWhatsAppStatus,
+  ensureWebClientStarted,
+  disconnectWebClient,
   normalizePhone,
 } from "./whatsapp.js";
 import { runPostRegistrationFlow, runPaymentConfirmedFlow } from "./automation.js";
@@ -427,91 +425,25 @@ async function sendSMS(phone, message) {
   }
 }
 
-// --- WHATSAPP WEB CLIENT CONFIGURATION ---
-// Automatically detect and use Windows local Chrome path to bypass Puppeteer download issues
-let chromePath = "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
-if (!fs.existsSync(chromePath)) {
-  chromePath = "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe";
-}
-if (!fs.existsSync(chromePath)) {
-  chromePath = undefined;
-}
+// --- WHATSAPP -------------------------------------------------------
+// The whatsapp-web.js client is managed by whatsapp.js, which also handles
+// QR-code generation, session persistence and channel fallback. It is started
+// lazily via ensureWebClientStarted() and initialised here at boot.
+ensureWebClientStarted().catch((err) =>
+  console.warn("WhatsApp web client not started:", err.message)
+);
 
-const whatsappClient = new Client({
-  authStrategy: new LocalAuth(),
-  webVersionCache: {
-    type: 'remote',
-    remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.2412.54.html',
-  },
-  puppeteer: {
-    headless: true,
-    executablePath: chromePath,
-    args: ["--no-sandbox", "--disable-setuid-sandbox"]
-  }
-});
-
-let isWhatsAppReady = false;
-
-whatsappClient.on("qr", async (qr) => {
-  console.log("\n------------------------------------------------------------");
-  console.log("👉 SCAN THE QR CODE IN THE TERMINAL OR OPEN THE FILE:");
-  console.log("👉 whatsapp-qr.png");
-  console.log("------------------------------------------------------------\n");
-
-  try {
-    const qrPath = "whatsapp-qr.png";
-    await QRCode.toFile(qrPath, qr, { width: 300 });
-    console.log(`🖼️  QR Code image saved successfully to: ${qrPath}`);
-  } catch (err) {
-    console.error("❌ Failed to save QR PNG file:", err.message);
-  }
-});
-
-whatsappClient.on("ready", () => {
-  isWhatsAppReady = true;
-  console.log("✅ WhatsApp Web Client is fully connected and ready!");
-  
-  try {
-    const qrPath = "whatsapp-qr.png";
-    if (fs.existsSync(qrPath)) {
-      fs.unlinkSync(qrPath);
-      console.log("🧹 Cleaned up temporary whatsapp-qr.png file.");
-    }
-  } catch (err) {
-    console.error("❌ Failed to clean up QR PNG file:", err.message);
-  }
-});
-
-whatsappClient.on("auth_failure", (msg) => {
-  console.error("❌ WhatsApp Web authentication failed:", msg);
-});
-
-whatsappClient.on("disconnected", (reason) => {
-  isWhatsAppReady = false;
-  console.log("❌ WhatsApp Web was disconnected:", reason);
-  // Re-initialize to generate a new QR code if not disabled
-  if (process.env.DISABLE_WHATSAPP !== 'true') {
-    whatsappClient.initialize().catch(err => console.error("Re-initialization error:", err));
-  }
-});
-
-// Initialize the legacy whatsapp-web.js client only when explicitly enabled.
-// The WhatsApp Cloud API is the primary channel; this browser-based client
-// requires a QR scan and a local Chrome install, so it stays opt-in.
-const USE_WEB_CLIENT = process.env.WHATSAPP_WEB_CLIENT === "true" && process.env.DISABLE_WHATSAPP !== "true";
-if (USE_WEB_CLIENT) {
-  whatsappClient.initialize().catch((err) => console.error("WhatsApp Initialization error:", err));
+const WEB_ACTIVE = getWhatsAppStatus();
+if (
+  WEB_ACTIVE.channels.cloud ||
+  WEB_ACTIVE.channels.twilio ||
+  WEB_ACTIVE.channels.web
+) {
+  console.log("Whatsapp automation active.");
 } else {
-  const provider = activeProvider();
-  console.log(
-    provider === "mock"
-      ? "WhatsApp not configured - messages will be logged to console (mock mode)."
-      : `WhatsApp automation active via ${provider}.`
-  );
+  console.log("Whatsapp not configured - messages will be logged to console (mock mode).");
 }
 
-// WhatsApp delivery. Uses the Meta Cloud API (or Twilio); falls back to a
-// console mock when no provider is configured. Never throws.
 async function sendWhatsApp(phone, message) {
   return sendWhatsAppMessage(phone, message);
 }
@@ -1749,6 +1681,57 @@ app.get("/api/certificate/download/:id", async (req, res) => {
     res.send(pdfBuffer);
   } catch (error) {
     res.status(500).send("Error generating certificate: " + error.message);
+  }
+});
+
+// --- WhatsApp Connection Management ---------------------------------
+// Link a real WhatsApp number by scanning a QR code, then registration and
+// payment messages are sent automatically.
+
+// Admin: Get WhatsApp connection status (+ QR code when one is pending)
+app.get("/api/admin/whatsapp/status", authenticateAdmin, async (req, res) => {
+  try {
+    await ensureWebClientStarted();
+    res.json(getWhatsAppStatus());
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Admin: (re)start the web client to obtain a fresh QR code
+app.post("/api/admin/whatsapp/qr", authenticateAdmin, async (req, res) => {
+  try {
+    await disconnectWebClient();
+    await ensureWebClientStarted(true); // manual action -> ignore failure cooldown
+    // Give the client a moment to emit the first QR code.
+    await new Promise((r) => setTimeout(r, 2500));
+    res.json(getWhatsAppStatus());
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Admin: Disconnect the linked WhatsApp number
+app.post("/api/admin/whatsapp/disconnect", authenticateAdmin, async (req, res) => {
+  try {
+    await disconnectWebClient();
+    res.json({ success: true, ...getWhatsAppStatus() });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Admin: Send a test WhatsApp message
+app.post("/api/admin/whatsapp/test", authenticateAdmin, async (req, res) => {
+  const { phone, message } = req.body;
+  if (!phone || !message) {
+    return res.status(400).json({ error: "phone and message are required" });
+  }
+  try {
+    const result = await sendWhatsAppMessage(phone, message);
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 });
 

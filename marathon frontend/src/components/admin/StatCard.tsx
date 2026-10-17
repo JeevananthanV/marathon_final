@@ -56,14 +56,14 @@ export function StatCard({ title, value, icon: Icon, color, subtitle, trend, del
             {value}
           </motion.p>
           {subtitle && (
-            <motion.p
+            <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4, delay: 0.4 + delay * 0.1 }}
               className="text-sm text-muted-foreground font-medium"
             >
               {subtitle}
-            </motion.p>
+            </motion.div>
           )}
           {trend && (
             <motion.div

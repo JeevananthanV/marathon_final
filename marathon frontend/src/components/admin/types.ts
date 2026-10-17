@@ -46,7 +46,7 @@ export interface ReportRow {
   revenue: number;
 }
 
-export type AdminTab = "dashboard" | "players" | "tshirt" | "reports" | "contacts" | "results";
+export type AdminTab = "dashboard" | "players" | "tshirt" | "reports" | "contacts" | "results" | "whatsapp";
 
 export const RACE_PRICES: Record<string, number> = { "5k": 499, "10k": 799, "21k": 999 };
 

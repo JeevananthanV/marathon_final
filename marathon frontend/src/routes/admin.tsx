@@ -9,6 +9,7 @@ import { TShirtTab } from "@/components/admin/TShirtTab";
 import { ReportsTab } from "@/components/admin/ReportsTab";
 import { ContactsTab } from "@/components/admin/ContactsTab";
 import { ResultsTab } from "@/components/admin/ResultsTab";
+import { WhatsAppTab } from "@/components/admin/WhatsAppTab";
 import { EditModal } from "@/components/admin/EditModal";
 import { DeleteModal } from "@/components/admin/DeleteModal";
 import type { Participant } from "@/components/admin/types";
@@ -114,6 +115,8 @@ function AdminPage() {
           onSendCertificate={sendCertificateEmail}
         />
       )}
+
+      {tab === "whatsapp" && <WhatsAppTab />}
 
       <EditModal
         participant={editingParticipant}

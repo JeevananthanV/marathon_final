@@ -11,6 +11,7 @@ import {
   LayoutDashboard, Users, Shirt, FileText, MessageSquare, LogOut,
   ClipboardList, ReceiptText, Award, Settings, Menu, HelpCircle,
   Bell, ChevronDown, ChevronRight, Search, Moon, Sun, X,
+  MessageCircle,
 } from "lucide-react";
 import type { AdminTab } from "./types";
 import { PremiumAvatar, TrendBadge } from "./PremiumUI";
@@ -30,6 +31,7 @@ const tabConfig = [
   { key: "tshirt" as const, label: "T-Shirt Sizes", icon: Shirt, description: "Size distribution" },
   { key: "reports" as const, label: "Reports", icon: FileText, description: "Revenue analytics" },
   { key: "contacts" as const, label: "Messages", icon: MessageSquare, description: "Contact inquiries" },
+  { key: "whatsapp" as const, label: "WhatsApp", icon: MessageCircle, description: "Automated messaging" },
 ];
 
 const secondaryNav = [

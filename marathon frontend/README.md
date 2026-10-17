@@ -77,13 +77,6 @@ src/
 - [Node.js](https://nodejs.org/) >= 18
 - [Bun](https://bun.sh/) (recommended) or npm
 
-### Installation
-
-```bash
-# Clone the repository
-git clone https://github.com/Gokulraj-N80/Marathon-web.git
-cd Marathon-web
-
 # Install dependencies
 npm install
 # or with bun
