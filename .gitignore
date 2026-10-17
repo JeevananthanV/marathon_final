@@ -64,3 +64,4 @@ backend/*.err
 
 # whatsapp-web.js session (contains auth tokens)
 backend/.wwebjs_auth/
+backend/.wwebjs_cache/
