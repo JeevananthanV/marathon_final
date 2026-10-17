@@ -129,13 +129,13 @@ npm run dev      # Starts API at http://localhost:5000
 
 ### 2. Frontend Setup
 
-Create `marathon frontend/.env`:
+Create `frontend/.env`:
 ```env
 VITE_API_URL=http://localhost:5000
 ```
 
 ```bash
-cd "marathon frontend"
+cd frontend
 bun install      # or npm install
 npm run dev      # Starts site at http://localhost:8080
 ```
@@ -155,7 +155,7 @@ npm run dev      # Starts site at http://localhost:8080
 ### Frontend Web Service
 | Setting | Value |
 |---|---|
-| Root Directory | `marathon frontend` |
+| Root Directory | `frontend` |
 | Build Command | `bun install && NITRO_PRESET=node-server npm run build` |
 | Start Command | `node .output/server/index.mjs` |
 | Env: `VITE_API_URL` | Your backend Render URL |

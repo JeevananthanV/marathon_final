@@ -192,7 +192,7 @@ Marathon-full/
 │   ├── zoho.js                # Zoho CRM sync helpers
 │   ├── seed.js                # Admin seeder script
 │   └── seed-test.js           # Test participant seeder (100 records)
-└── marathon frontend/
+└── frontend/
     ├── src/
     │   ├── routes/            # TanStack Start SSR route pages
     │   │   ├── index.tsx      # Public registration page
@@ -219,7 +219,7 @@ Marathon-full/
 | Service | Root Dir | Build Command | Start Command |
 |---|---|---|---|
 | **Backend** | `backend/` | `npm install` | `npm start` |
-| **Frontend** | `marathon frontend/` | `bun install && NITRO_PRESET=node-server npm run build` | `node .output/server/index.mjs` |
+| **Frontend** | `frontend/` | `bun install && NITRO_PRESET=node-server npm run build` | `node .output/server/index.mjs` |
 
 * Environment variables (MongoDB URI, JWT Secret, SMTP credentials, Twilio keys) configured as Render secrets.
 * `DISABLE_WHATSAPP=true` flag disables the WhatsApp Web client in production to avoid headless browser dependencies on Render.
