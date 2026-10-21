@@ -1081,7 +1081,8 @@ CREATE TABLE IF NOT EXISTS participants (
   "sentThankYou" INTEGER NOT NULL DEFAULT 0,
   "sentCertificate" INTEGER NOT NULL DEFAULT 0,
   "verifyCode" TEXT NOT NULL DEFAULT '',
-  "verifiedAt" TEXT NOT NULL DEFAULT ''
+  "verifiedAt" TEXT NOT NULL DEFAULT '',
+  "verifiedMsgAt" TEXT NOT NULL DEFAULT ''
 );
 CREATE TABLE IF NOT EXISTS contact_messages (
   _id SERIAL PRIMARY KEY,
@@ -1101,6 +1102,10 @@ CREATE TABLE IF NOT EXISTS admins (
   // Booth verification columns (added later — no-op on fresh databases).
   await run(`ALTER TABLE participants ADD COLUMN IF NOT EXISTS "verifyCode" TEXT NOT NULL DEFAULT ''`);
   await run(`ALTER TABLE participants ADD COLUMN IF NOT EXISTS "verifiedAt" TEXT NOT NULL DEFAULT ''`);
+  // When the "verification successful" WhatsApp actually went out. Empty = not
+  // sent yet (first scan, earlier failed attempt, or legacy row) — the next
+  // confirm will deliver it; once set, repeats never message again.
+  await run(`ALTER TABLE participants ADD COLUMN IF NOT EXISTS "verifiedMsgAt" TEXT NOT NULL DEFAULT ''`);
   // Backfill codes for rows registered before the feature existed.
   await run(
     `UPDATE participants SET "verifyCode" = md5(random()::text || clock_timestamp()::text || _id::text)
@@ -1171,6 +1176,7 @@ function rowToParticipant(row) {
     raceStatus: row.raceStatus,
     verifyCode: row.verifyCode || "",
     verifiedAt: row.verifiedAt || "",
+    verifiedMsgAt: row.verifiedMsgAt || "",
     sentNotifications: {
       sevenDaysBefore: !!row.sentSeven,
       threeDaysBefore: !!row.sentThree,
@@ -1186,21 +1192,21 @@ function rowToParticipant(row) {
       this.address, this.city, this.state, this.pincode, this.size, this.cityId, this.raceId,
       this.paymentStatus, this.paymentTxnId, this.bibNumber, this.salesforceLeadId, this.zohoLeadId,
       this.registrationDate instanceof Date ? this.registrationDate.toISOString() : this.registrationDate,
-      this.finishTime, this.raceStatus, this.verifyCode || "", this.verifiedAt || "",
+      this.finishTime, this.raceStatus, this.verifyCode || "", this.verifiedAt || "", this.verifiedMsgAt || "",
       ...sentToColumns(sn),
     ];
     if (!this._id) {
       const r = await run(`INSERT INTO participants (
         "fullName", "dob", "gender", "phone", "email", "emergencyContact", "address", "city", "state", "pincode",
         "size", "cityId", "raceId", "paymentStatus", "paymentTxnId", "bibNumber", "salesforceLeadId", "zohoLeadId",
-        "registrationDate", "finishTime", "raceStatus", "verifyCode", "verifiedAt", "sentSeven", "sentThree", "sentTwentyFour", "sentThankYou", "sentCertificate"
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING _id`, params);
+        "registrationDate", "finishTime", "raceStatus", "verifyCode", "verifiedAt", "verifiedMsgAt", "sentSeven", "sentThree", "sentTwentyFour", "sentThankYou", "sentCertificate"
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING _id`, params);
       this._id = r.rows[0]._id;
     } else {
       await run(`UPDATE participants SET
         "fullName"=?, "dob"=?, "gender"=?, "phone"=?, "email"=?, "emergencyContact"=?, "address"=?, "city"=?, "state"=?, "pincode"=?,
         "size"=?, "cityId"=?, "raceId"=?, "paymentStatus"=?, "paymentTxnId"=?, "bibNumber"=?, "salesforceLeadId"=?, "zohoLeadId"=?,
-        "registrationDate"=?, "finishTime"=?, "raceStatus"=?, "verifyCode"=?, "verifiedAt"=?, "sentSeven"=?, "sentThree"=?, "sentTwentyFour"=?, "sentThankYou"=?, "sentCertificate"=?
+        "registrationDate"=?, "finishTime"=?, "raceStatus"=?, "verifyCode"=?, "verifiedAt"=?, "verifiedMsgAt"=?, "sentSeven"=?, "sentThree"=?, "sentTwentyFour"=?, "sentThankYou"=?, "sentCertificate"=?
         WHERE _id=?`, [...params, this._id]);
     }
     return this;
@@ -1466,7 +1472,7 @@ function verifyPageHtml(p) {
       <span class="pill ${verified ? "ok" : "pending"}" id="statusPill">${verified ? "✅ VERIFIED" : "⏳ PENDING VERIFICATION"}</span>
       ${verified ? `<p class="note" style="text-align:left;margin-top:-4px">Verified on ${escapeHtml(formatVerifiedAt(p.verifiedAt))}</p>` : ""}
       ${rows}
-      ${verified ? "" : `<button class="btn" id="verifyBtn">✅ Verify Player &amp; Send Confirmation</button>`}
+      ${p.verifiedMsgAt ? "" : `<button class="btn" id="verifyBtn">${verified ? "🔁 Resend Confirmation" : "✅ Verify Player &amp; Send Confirmation"}</button>`}
       <p class="err" id="errLine"></p>
       <p class="note">After verification a confirmation message is sent automatically to the runner's WhatsApp.</p>
     </div>
@@ -1497,9 +1503,12 @@ function verifyPageHtml(p) {
       document.getElementById("pendingBox").style.display = "none";
       document.getElementById("successBox").style.display = "block";
       var wa = data.whatsapp || {};
-      document.getElementById("waLine").textContent = wa.ok
-        ? "Confirmation sent to the runner's WhatsApp via " + (wa.provider || "provider") + "."
-        : "Runner verified. (WhatsApp: " + (wa.error || "not sent") + ")";
+      document.getElementById("waLine").textContent =
+        data.already && !wa.ok
+          ? "Verification already completed — the confirmation was already sent to the runner's WhatsApp."
+          : wa.ok
+            ? "Confirmation sent to the runner's WhatsApp via " + (wa.provider || "provider") + "."
+            : "Runner verified. (WhatsApp: " + (wa.error || "not sent") + ")";
     } catch (e) {
       var el = document.getElementById("errLine");
       el.textContent = e.message || "Verification failed";
@@ -1546,27 +1555,40 @@ app.post("/api/verify/confirm", async (req, res) => {
       verifiedAt: participant.verifiedAt || null,
     };
 
-    // Already verified at the booth -> idempotent, do not message again.
-    if (participant.verifiedAt) {
-      return res.json({ success: true, already: true, participant: view });
+    // Verification is one-time, but the confirmation message must still be
+    // deliverable: send it whenever verifiedMsgAt is empty (first scan, an
+    // earlier failed attempt, or rows verified before this tracking existed).
+    const wasVerified = Boolean(participant.verifiedAt);
+    if (!participant.verifiedAt) {
+      participant.verifiedAt = new Date().toISOString();
     }
-
-    participant.verifiedAt = new Date().toISOString();
-    await participant.save();
 
     let wa = null;
-    try {
-      wa = await sendWhatsAppMessage(participant.phone, buildVerificationMessage(participant));
-    } catch (err) {
-      wa = { ok: false, error: err.message };
+    let sentNow = false;
+    if (!participant.verifiedMsgAt) {
+      try {
+        wa = await sendWhatsAppMessage(participant.phone, buildVerificationMessage(participant));
+      } catch (err) {
+        wa = { ok: false, error: err.message };
+      }
+      if (wa?.ok) {
+        participant.verifiedMsgAt = new Date().toISOString();
+        sentNow = true;
+      }
     }
+    await participant.save();
+
+    // already = verified AND its confirmation already went out earlier → no spam.
+    const already = wasVerified && Boolean(participant.verifiedMsgAt) && !sentNow;
 
     console.log(
-      `[Verify] ${regId(participant)} ${participant.fullName} verified — WhatsApp: ${wa?.ok ? wa.provider : wa?.error || "failed"}`
+      `[Verify] ${regId(participant)} ${participant.fullName} ${wasVerified ? "re-confirmed" : "verified"} — WhatsApp: ${
+        wa ? (wa.ok ? wa.provider : wa.error || "failed") : "already sent earlier"
+      }`
     );
 
     view.verifiedAt = participant.verifiedAt;
-    res.json({ success: true, whatsapp: wa, participant: view });
+    res.json({ success: true, already, whatsapp: wa, participant: view });
   } catch (err) {
     console.error("Verify confirm error:", err);
     res.status(500).json({ success: false, error: "Verification failed. Please try again." });
@@ -1591,6 +1613,7 @@ app.get("/api/verify/:code", async (req, res) => {
         bibNumber: p.bibNumber || "",
         paymentStatus: p.paymentStatus,
         verifiedAt: p.verifiedAt || null,
+        verifiedMsgAt: p.verifiedMsgAt || null,
       },
     });
   } catch (err) {
@@ -1722,9 +1745,12 @@ function scannerPageHtml() {
       : '<span class="pill pending">⏳ PENDING VERIFICATION</span>';
     var vOn = (state === "verified" && extra.verifiedOn)
       ? '<p class="verifiedOn">Verified on ' + esc(extra.verifiedOn) + "</p>" : "";
-    var btn = (state === "pending" && extra.showButton)
-      ? '<button class="vbtn" id="vbtn">✅ Verify Player &amp; Send WhatsApp</button>' +
-        '<p class="err" id="errLine"></p>' : "";
+    var msgPending = !p.verifiedMsgAt;
+    var resending = state === "verified" && msgPending;
+    var btn = ((state === "pending" && extra.showButton) || resending)
+      ? '<button class="vbtn" id="vbtn">' +
+        (resending ? "🔁 Resend Confirmation" : "✅ Verify Player &amp; Send WhatsApp") +
+        '</button>' + '<p class="err" id="errLine"></p>' : "";
     var wline = extra.waLine ? '<p class="wline">' + esc(extra.waLine) + "</p>" : "";
     panel.className = "panel show";
     cardInner.innerHTML = '<div class="pbody">' + pill + vOn + rowsHtml(p) + btn + wline + "</div>";
@@ -1762,11 +1788,14 @@ function scannerPageHtml() {
         return;
       }
       var wa = data.whatsapp || {};
+      if (wa.ok) p.verifiedMsgAt = new Date().toISOString(); // keep local card in sync — no resend button after a successful send
       showRunnerCard(p, "verified", {
         verifiedOn: fmtWhen((data.participant && data.participant.verifiedAt) || new Date().toISOString()),
-        waLine: wa.ok
-          ? "Confirmation sent to the runner's WhatsApp via " + (wa.provider || "provider") + "."
-          : "Runner verified. (WhatsApp: " + (wa.error || "not sent") + ")"
+        waLine: data.already && !wa.ok
+          ? "Already verified — the confirmation was already sent to the runner's WhatsApp."
+          : wa.ok
+            ? "Confirmation sent to the runner's WhatsApp via " + (wa.provider || "provider") + "."
+            : "Runner verified. (WhatsApp: " + (wa.error || "not sent") + ")"
       });
       beep(950, 90); setTimeout(function () { beep(1320, 120); }, 110); buzz([70, 50, 140]);
     } catch (e) {
@@ -1783,11 +1812,18 @@ function scannerPageHtml() {
       if (!res.ok || !data.success) return invalidCard("Invalid QR code", "Code not found in registrations.");
       var p = data.participant;
       if (p.verifiedAt) {
-        showRunnerCard(p, "verified", {
-          verifiedOn: fmtWhen(p.verifiedAt),
-          waLine: "Already verified earlier — no new message sent."
-        });
-        beep(500, 160); buzz([120, 80, 120]);
+        if (!p.verifiedMsgAt && autoToggle.checked) {
+          // Verified earlier but the confirmation never went out — deliver it now.
+          await doVerify(p);
+        } else {
+          showRunnerCard(p, "verified", {
+            verifiedOn: fmtWhen(p.verifiedAt),
+            waLine: p.verifiedMsgAt
+              ? "Already verified earlier — no new message sent."
+              : "Verified earlier, but the confirmation message hasn't been delivered yet."
+          });
+          beep(500, 160); buzz([120, 80, 120]);
+        }
       } else if (autoToggle.checked) {
         await doVerify(p);
       } else {
