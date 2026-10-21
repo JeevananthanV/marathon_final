@@ -49,6 +49,7 @@ function AdminPage() {
     togglePaymentStatus,
     deleteParticipant,
     sendCertificateEmail,
+    resendEntryQr,
     updateParticipant,
   } = useAdmin();
 
@@ -93,6 +94,7 @@ function AdminPage() {
           onDelete={setDeletingId}
           onTogglePayment={togglePaymentStatus}
           onSendCertificate={sendCertificateEmail}
+          onResendQr={resendEntryQr}
         />
       )}
 

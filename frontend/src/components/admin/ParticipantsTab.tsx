@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/table";
 import {
   Download, Filter, Search, Eye, EyeOff, Edit3, Check, X, Send, Trash2,
-  ChevronLeft, ChevronRight, MoreVertical,
+  ChevronLeft, ChevronRight, MoreVertical, QrCode,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
@@ -33,6 +33,7 @@ interface ParticipantsTabProps {
   onDelete: (id: string) => void;
   onTogglePayment: (id: string, status: "Paid" | "Pending") => void;
   onSendCertificate: (id: string) => void;
+  onResendQr: (id: string) => void;
 }
 
 const ROWS_PER_PAGE = 12;
@@ -51,6 +52,7 @@ export function ParticipantsTab({
   onDelete,
   onTogglePayment,
   onSendCertificate,
+  onResendQr,
 }: ParticipantsTabProps) {
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
   const [page, setPage] = useState(0);
@@ -314,6 +316,9 @@ export function ParticipantsTab({
                           <Send className="h-4 w-4" />
                         </Button>
                       )}
+                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-lg text-primary hover:bg-primary/10" onClick={() => onResendQr(p._id)} title="Resend Entry QR">
+                        <QrCode className="h-4 w-4" />
+                      </Button>
                       <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-lg text-destructive hover:bg-destructive/10" onClick={() => onDelete(p._id)}>
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -428,6 +433,9 @@ export function ParticipantsTab({
                       <Send className="h-3.5 w-3.5" />
                     </Button>
                   )}
+                  <Button variant="outline" size="sm" className="h-8 w-8 p-0 rounded-lg text-primary border-primary/20 hover:bg-primary/10" onClick={() => onResendQr(p._id)} title="Resend Entry QR">
+                    <QrCode className="h-3.5 w-3.5" />
+                  </Button>
                   <Button variant="outline" size="sm" className="h-8 w-8 p-0 rounded-lg text-destructive border-destructive/20 hover:bg-destructive/10" onClick={() => onDelete(p._id)} title="Delete">
                     <Trash2 className="h-3.5 w-3.5" />
                   </Button>

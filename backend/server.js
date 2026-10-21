@@ -31,6 +31,8 @@ import {
   normalizePhone,
   buildVerificationMessage,
   buildVerifyUrl,
+  buildRegistrationQrCaption,
+  sendVerifyQrWhatsApp,
   regId,
   raceLabel,
   cityLabel,
@@ -2143,6 +2145,24 @@ app.post("/api/admin/participants/:id/send-certificate", authenticateAdmin, asyn
     if (participant.paymentStatus !== "Paid") return res.status(400).json({ error: "Participant has not paid yet" });
     await sendPaymentConfirmationEmail(participant);
     res.json({ success: true, message: `Certificate email sent to ${participant.email}` });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Admin: resend the entry QR (single combined confirmation message) to a runner.
+// Useful when the public BASE_URL changed and old QR links stopped working.
+app.post("/api/admin/participants/:id/resend-qr", authenticateAdmin, async (req, res) => {
+  try {
+    const participant = await Participant.findById(req.params.id);
+    if (!participant) return res.status(404).json({ error: "Participant not found" });
+    if (!participant.verifyCode) {
+      participant.verifyCode = crypto.randomBytes(16).toString("hex");
+      await participant.save();
+    }
+    const wa = await sendVerifyQrWhatsApp(participant, buildRegistrationQrCaption(participant));
+    if (!wa.ok) return res.status(502).json({ error: wa.error || "WhatsApp send failed" });
+    res.json({ success: true, provider: wa.provider, mock: !!wa.mock, phone: participant.phone });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

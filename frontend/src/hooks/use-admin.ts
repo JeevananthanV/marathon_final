@@ -124,6 +124,16 @@ export function useAdmin() {
     toast.success(d.message);
   }, [token]);
 
+  const resendEntryQr = useCallback(async (id: string) => {
+    const res = await fetch(`${API_BASE}/participants/${id}/resend-qr`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const d = await res.json();
+    if (!res.ok) throw new Error(d.error || "Failed to resend QR");
+    toast.success(`Entry QR sent to ${d.phone}`);
+  }, [token]);
+
   const updateParticipant = useCallback(async (id: string, data: Partial<Participant>) => {
     const res = await fetch(`${API_BASE}/participants/${id}`, {
       method: "PUT",
@@ -268,6 +278,7 @@ export function useAdmin() {
     togglePaymentStatus,
     deleteParticipant,
     sendCertificateEmail,
+    resendEntryQr,
     updateParticipant,
     fetchData,
   };
