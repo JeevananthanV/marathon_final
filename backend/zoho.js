@@ -34,10 +34,31 @@ export function isZohoConfigured() {
   );
 }
 
+// Which variables are missing/placeholder — surfaced in the admin CRM tab so
+// it is obvious exactly what still has to be filled in.
+export function getZohoStatus() {
+  const missing = [];
+  if (!zohoValue(ZOHO_ACCOUNTS_URL)) missing.push("ZOHO_ACCOUNTS_URL");
+  if (!zohoValue(ZOHO_API_URL)) missing.push("ZOHO_API_URL");
+  if (!zohoValue(ZOHO_CLIENT_ID)) missing.push("ZOHO_CLIENT_ID");
+  if (!zohoValue(ZOHO_CLIENT_SECRET)) missing.push("ZOHO_CLIENT_SECRET");
+  if (!zohoValue(ZOHO_REFRESH_TOKEN)) missing.push("ZOHO_REFRESH_TOKEN");
+  return { configured: missing.length === 0, missing };
+}
+
+// The refresh-token grant mints a fresh access token per call — cache it so a
+// bulk sync of hundreds of registrations only refreshes once per hour.
+let cachedAccessToken = null;
+let accessTokenExpiresAt = 0;
+
 // Get Access Token using OAuth 2.0 Refresh Token Flow
 async function getAccessToken() {
   if (!isZohoConfigured()) {
     throw new Error("Zoho integration is not fully configured in environment variables.");
+  }
+
+  if (cachedAccessToken && Date.now() < accessTokenExpiresAt) {
+    return cachedAccessToken;
   }
 
   const accountsUrl = ZOHO_ACCOUNTS_URL.replace(/\/$/, ""); // Remove trailing slash if any
@@ -68,7 +89,10 @@ async function getAccessToken() {
     throw new Error(`Zoho token generation failed: ${data.error}`);
   }
 
-  return data.access_token;
+  cachedAccessToken = data.access_token;
+  // Refresh one minute before the token actually expires.
+  accessTokenExpiresAt = Date.now() + Math.max(60, (Number(data.expires_in) || 3600) - 60) * 1000;
+  return cachedAccessToken;
 }
 
 // Map participant data to Zoho CRM Lead fields
@@ -125,14 +149,14 @@ function mapParticipantToLead(participant) {
 }
 
 /**
- * Creates or updates a Lead in Zoho CRM.
+ * Creates or updates a Lead in Zoho CRM with full result detail.
  * If participant has zohoLeadId, we update. Otherwise, we create a new one.
- * Returns the Lead ID if successful.
+ * Returns { ok, id?, error?, skipped? } and never throws.
  */
-export async function syncParticipantToZoho(participant) {
+export async function syncParticipantToZohoDetailed(participant) {
   if (!isZohoConfigured()) {
     console.log(`[Zoho CRM Service] Sync skipped: Credentials not configured.`);
-    return null;
+    return { ok: false, skipped: true, error: "not_configured" };
   }
 
   try {
@@ -170,41 +194,115 @@ export async function syncParticipantToZoho(participant) {
       }
 
       console.log(`[Zoho CRM Service] Successfully updated Lead ${participant.zohoLeadId} for ${participant.email}`);
-      return participant.zohoLeadId;
-    } else {
-      // Create new Lead
-      const createUrl = `${apiUrl}/Leads`;
-      const response = await fetch(createUrl, {
-        method: "POST",
-        headers: {
-          "Authorization": `Zoho-oauthtoken ${accessToken}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          data: [leadData]
-        })
-      });
-
-      if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(`Failed to create Lead in Zoho CRM: ${response.statusText} - ${errText}`);
-      }
-
-      const result = await response.json();
-      if (result.data && result.data[0]) {
-        if (result.data[0].status === "error") {
-          throw new Error(`Zoho API create error: ${JSON.stringify(result.data[0].message)}`);
-        }
-        const createdId = result.data[0].details.id;
-        console.log(`[Zoho CRM Service] Successfully created Lead ${createdId} for ${participant.email}`);
-        return createdId;
-      }
-
-      throw new Error(`Zoho API response format is invalid: ${JSON.stringify(result)}`);
+      return { ok: true, id: participant.zohoLeadId, updated: true };
     }
+
+    // Create new Lead
+    const createUrl = `${apiUrl}/Leads`;
+    const response = await fetch(createUrl, {
+      method: "POST",
+      headers: {
+        "Authorization": `Zoho-oauthtoken ${accessToken}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        data: [leadData]
+      })
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`Failed to create Lead in Zoho CRM: ${response.statusText} - ${errText}`);
+    }
+
+    const result = await response.json();
+    if (result.data && result.data[0]) {
+      if (result.data[0].status === "error") {
+        throw new Error(`Zoho API create error: ${JSON.stringify(result.data[0].message)}`);
+      }
+      const createdId = result.data[0].details.id;
+      console.log(`[Zoho CRM Service] Successfully created Lead ${createdId} for ${participant.email}`);
+      return { ok: true, id: createdId, created: true };
+    }
+
+    throw new Error(`Zoho API response format is invalid: ${JSON.stringify(result)}`);
   } catch (error) {
     console.error(`[Zoho CRM Service Error] Sync failed:`, error.message);
-    return null;
+    return { ok: false, error: error.message };
+  }
+}
+
+/**
+ * Backwards-compatible wrapper: returns the Lead ID or null.
+ */
+export async function syncParticipantToZoho(participant) {
+  const result = await syncParticipantToZohoDetailed(participant);
+  return result.ok && result.id ? result.id : null;
+}
+
+/**
+ * Full round-trip connection test used by the admin CRM tab:
+ * refreshes the token, creates a throwaway Lead, then removes it again.
+ * Exercises exactly the create/update/delete path the site relies on.
+ */
+export async function testZohoConnection() {
+  const status = getZohoStatus();
+  if (!status.configured) {
+    return { ok: false, error: "Zoho is not configured", missing: status.missing };
+  }
+
+  const marker = `rbl-api-test-${Date.now()}`;
+  try {
+    const accessToken = await getAccessToken();
+    const apiUrl = ZOHO_API_URL.replace(/\/$/, "");
+
+    const createRes = await fetch(`${apiUrl}/Leads`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Zoho-oauthtoken ${accessToken}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        data: [
+          {
+            First_Name: "Connection",
+            Last_Name: "Test",
+            Company: "Run Beyond Limits — API test",
+            Email: `${marker}@example.com`,
+            Lead_Source: "Marathon Website"
+          }
+        ]
+      })
+    });
+
+    const createText = await createRes.text();
+    if (!createRes.ok) throw new Error(`Create failed: ${createRes.status} - ${createText}`);
+    const createJson = JSON.parse(createText || "{}");
+    const entry = createJson?.data?.[0];
+    if (!entry || entry.status === "error") {
+      throw new Error(`Create failed: ${JSON.stringify(entry?.message || createJson)}`);
+    }
+    const leadId = entry.details?.id;
+
+    // Remove the throwaway lead so the CRM stays clean.
+    let removed = false;
+    if (leadId) {
+      try {
+        const delRes = await fetch(`${apiUrl}/Leads?ids=${leadId}`, {
+          method: "DELETE",
+          headers: { "Authorization": `Zoho-oauthtoken ${accessToken}` }
+        });
+        removed = delRes.ok || delRes.status === 404;
+      } catch {
+        removed = false;
+      }
+    }
+
+    console.log(`[Zoho CRM Service] Connection test passed (created & removed lead ${leadId})`);
+    return { ok: true, leadId, removed };
+  } catch (error) {
+    console.error(`[Zoho CRM Service Error] Connection test failed:`, error.message);
+    return { ok: false, error: error.message };
   }
 }
 

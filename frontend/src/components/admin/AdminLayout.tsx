@@ -11,7 +11,7 @@ import {
   LayoutDashboard, Users, Shirt, FileText, MessageSquare, LogOut,
   ClipboardList, ReceiptText, Award, Settings, Menu, HelpCircle,
   Bell, ChevronDown, ChevronRight, Search, Moon, Sun, X,
-  MessageCircle,
+  MessageCircle, Database,
 } from "lucide-react";
 import type { AdminTab } from "./types";
 import { PremiumAvatar, TrendBadge } from "./PremiumUI";
@@ -32,6 +32,7 @@ const tabConfig = [
   { key: "reports" as const, label: "Reports", icon: FileText, description: "Revenue analytics" },
   { key: "contacts" as const, label: "Messages", icon: MessageSquare, description: "Contact inquiries" },
   { key: "whatsapp" as const, label: "WhatsApp", icon: MessageCircle, description: "Automated messaging" },
+  { key: "crm" as const, label: "Zoho CRM", icon: Database, description: "Registration data sync" },
 ];
 
 const secondaryNav = [

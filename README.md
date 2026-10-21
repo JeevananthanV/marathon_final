@@ -58,6 +58,14 @@ A full-stack marathon event registration and management platform for **Run Beyon
 - Before the race, booth staff scan the runner's QR and tap **Verify Player** — the runner is marked verified and a *"verification successful"* WhatsApp message is sent to them automatically
 - Re-scans are idempotent: already-verified runners show a ✅ badge and are never messaged twice
 
+### 📇 Zoho CRM Sync
+- Every registration is pushed to Zoho as a **Lead** (contact details, city, race category, T-shirt size, payment status)
+- Admin edits update the same Lead, payment approval moves it to **Converted**, deletions remove it from Zoho
+- **Admin → Zoho CRM** tab: live sync statistics, *Test connection* (creates & removes a throwaway Lead) and a one-click *Sync all registrations* bulk backfill with a progress bar
+- One-time setup helper: `npm run zoho-auth -- <CODE>` exchanges a Zoho API code for a refresh token and writes it into `backend/.env`; `npm run zoho-auth -- --check` verifies it
+- Placeholder credentials are detected and **skipped without errors** — the site runs normally until Zoho is configured
+- OAuth access tokens are cached for the token lifetime, so a bulk sync of hundreds of leads only refreshes once
+
 ### 🗺️ Multi-City Support
 - **Chennai** — Marina Beach coastal route
 - **Bengaluru** — Vidhana Soudha heritage route
@@ -102,6 +110,9 @@ A full-stack marathon event registration and management platform for **Run Beyon
 | `GET` | `/api/admin/whatsapp/status` | WhatsApp channel status + pending QR | Admin JWT |
 | `POST` | `/api/admin/whatsapp/qr` | (Re)start client to get a fresh QR | Admin JWT |
 | `POST` | `/api/admin/whatsapp/test` | Send a test WhatsApp message | Admin JWT |
+| `GET` | `/api/admin/zoho/status` | Zoho config, sync stats & bulk-job progress | Admin JWT |
+| `POST` | `/api/admin/zoho/test` | Validate credentials (create + remove test Lead) | Admin JWT |
+| `POST` | `/api/admin/zoho/sync-all` | Bulk-sync registrations → Zoho (background) | Admin JWT |
 | `GET` | `/verify?code=` | Booth verification page (scan the runner's entry QR) | Public |
 | `POST` | `/api/verify/confirm` | Mark runner verified + auto WhatsApp confirmation | Public |
 

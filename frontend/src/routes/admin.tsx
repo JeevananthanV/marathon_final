@@ -10,6 +10,7 @@ import { ReportsTab } from "@/components/admin/ReportsTab";
 import { ContactsTab } from "@/components/admin/ContactsTab";
 import { ResultsTab } from "@/components/admin/ResultsTab";
 import { WhatsAppTab } from "@/components/admin/WhatsAppTab";
+import { CrmTab } from "@/components/admin/CrmTab";
 import { EditModal } from "@/components/admin/EditModal";
 import { DeleteModal } from "@/components/admin/DeleteModal";
 import type { Participant } from "@/components/admin/types";
@@ -117,6 +118,8 @@ function AdminPage() {
       )}
 
       {tab === "whatsapp" && <WhatsAppTab />}
+
+      {tab === "crm" && <CrmTab />}
 
       <EditModal
         participant={editingParticipant}

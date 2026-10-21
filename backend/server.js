@@ -14,7 +14,13 @@ import { z } from "zod";
 import rateLimit from "express-rate-limit";
 import mongoSanitize from "express-mongo-sanitize";
 import { syncParticipantToSalesforce, deleteParticipantFromSalesforce } from "./salesforce.js";
-import { syncParticipantToZoho, deleteParticipantFromZoho } from "./zoho.js";
+import {
+  syncParticipantToZoho,
+  syncParticipantToZohoDetailed,
+  deleteParticipantFromZoho,
+  getZohoStatus,
+  testZohoConnection,
+} from "./zoho.js";
 import {
   sendWhatsAppMessage,
   sendRegistrationWhatsApp,
@@ -48,23 +54,49 @@ const JWT_SECRET = process.env.JWT_SECRET;
 app.use(mongoSanitize());
 // Nodemailer SMTP Transporter (works with Gmail port 465 AND Brevo port 587)
 const smtpPort = parseInt(process.env.SMTP_PORT) || 587;
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || "smtp-relay.brevo.com",
-  port: smtpPort,
-  secure: smtpPort === 465, // true for port 465 (Gmail), false for 587 (Brevo/TLS)
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS
-  }
-});
 
-transporter.verify((err, success) => {
-  if (err) {
-    console.warn("SMTP connection not available (running without email delivery):", err.message);
-  } else {
-    console.log("SMTP Server is ready to send emails!");
-  }
-});
+// Shipped .env values ("your_email@gmail.com" style) are placeholders — treat
+// them as "not configured" so the site boots and runs with zero auth errors.
+// Emails are logged and skipped instead of failing with SMTP 535 on every
+// registration / scheduler run.
+function smtpValue(v) {
+  const s = typeof v === "string" ? v.trim() : "";
+  if (!s || /^your[_-]/i.test(s) || /^(changeme|placeholder|xxxx+)$/i.test(s)) return "";
+  return s;
+}
+const SMTP_USER = smtpValue(process.env.SMTP_USER);
+const SMTP_PASS = smtpValue(process.env.SMTP_PASS);
+const EMAIL_CONFIGURED = !!(SMTP_USER && SMTP_PASS);
+
+const transporter = EMAIL_CONFIGURED
+  ? nodemailer.createTransport({
+      host: process.env.SMTP_HOST || "smtp-relay.brevo.com",
+      port: smtpPort,
+      secure: smtpPort === 465, // true for port 465 (Gmail), false for 587 (Brevo/TLS)
+      auth: { user: SMTP_USER, pass: SMTP_PASS }
+    })
+  : {
+      // Null transport: every sendMail() call resolves cleanly and just logs
+      // what would have been sent, so no flow (registration, payment,
+      // scheduler, certificates) can break because of email delivery.
+      async sendMail({ to, subject }) {
+        console.log(`[Email Skipped] SMTP not configured — "${subject}" → ${to} (set SMTP_USER/SMTP_PASS in backend/.env to enable)`);
+        return { messageId: "skipped-smtp-not-configured" };
+      },
+      verify(cb) { if (typeof cb === "function") cb(null, true); }
+    };
+
+if (EMAIL_CONFIGURED) {
+  transporter.verify((err) => {
+    if (err) {
+      console.warn("SMTP connection not available (running without email delivery):", err.message);
+    } else {
+      console.log("SMTP Server is ready to send emails!");
+    }
+  });
+} else {
+  console.log("[Email] SMTP credentials not configured — email delivery disabled, messages logged only (no errors).");
+}
 
 // ---- NOTIFICATION HELPERS ----
 
@@ -1957,6 +1989,116 @@ app.post("/api/admin/whatsapp/test", authenticateAdmin, async (req, res) => {
   try {
     const result = await sendWhatsAppMessage(phone, message);
     res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// --- Zoho CRM Management -------------------------------------------------
+// Registration data is pushed to Zoho as Leads automatically (create on
+// register, update on edit, Converted on payment, delete on removal).
+// These endpoints power the admin "Zoho CRM" tab.
+
+let zohoSyncJob = null; // { running, total, done, synced, errors, startedAt, finishedAt, lastError }
+
+// Admin: configuration + sync statistics + bulk-job progress
+app.get("/api/admin/zoho/status", authenticateAdmin, async (req, res) => {
+  try {
+    const cfg = getZohoStatus();
+    const statsRow = await get(`
+      SELECT COUNT(*)::int AS total,
+             COALESCE(SUM(CASE WHEN "zohoLeadId" <> '' THEN 1 ELSE 0 END), 0)::int AS synced
+      FROM participants
+    `);
+    const total = statsRow?.total || 0;
+    const synced = statsRow?.synced || 0;
+    res.json({
+      configured: cfg.configured,
+      missing: cfg.missing,
+      accountsUrl: process.env.ZOHO_ACCOUNTS_URL || "",
+      apiUrl: process.env.ZOHO_API_URL || "",
+      stats: { total, synced, pending: total - synced },
+      syncJob: zohoSyncJob || { running: false }
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Admin: prove the credentials work (creates + removes a throwaway Lead)
+app.post("/api/admin/zoho/test", authenticateAdmin, async (req, res) => {
+  try {
+    const result = await testZohoConnection();
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+// Admin: bulk-sync registrations into Zoho. Runs as a background job so the
+// request returns instantly — the CRM tab polls /zoho/status for progress.
+app.post("/api/admin/zoho/sync-all", authenticateAdmin, async (req, res) => {
+  try {
+    const cfg = getZohoStatus();
+    if (!cfg.configured) {
+      return res.status(400).json({ success: false, error: "Zoho is not configured", missing: cfg.missing });
+    }
+    if (zohoSyncJob && zohoSyncJob.running) {
+      return res.status(409).json({ success: false, error: "A sync job is already running", job: zohoSyncJob });
+    }
+
+    const force = !!req.body?.force;
+    const rows = await all(`SELECT * FROM participants ORDER BY _id ASC`);
+    const targets = rows.filter((r) => force || !r.zohoLeadId);
+
+    zohoSyncJob = {
+      running: true,
+      total: targets.length,
+      done: 0,
+      synced: 0,
+      errors: 0,
+      force,
+      startedAt: new Date().toISOString(),
+      finishedAt: null,
+      lastError: ""
+    };
+
+    res.json({ success: true, started: true, total: targets.length, force });
+
+    if (targets.length === 0) {
+      zohoSyncJob.running = false;
+      zohoSyncJob.finishedAt = new Date().toISOString();
+      return;
+    }
+
+    // Sequential so the shared OAuth access token is refreshed once, not N times.
+    (async () => {
+      for (const row of targets) {
+        try {
+          const p = rowToParticipant(row);
+          const result = await syncParticipantToZohoDetailed(p);
+          if (result.ok) {
+            if (!p.zohoLeadId && result.id) {
+              p.zohoLeadId = result.id; // remember the Lead for future updates
+              await p.save();
+            }
+            zohoSyncJob.synced += 1;
+          } else if (!result.skipped) {
+            zohoSyncJob.errors += 1;
+            zohoSyncJob.lastError = result.error || "sync failed";
+          }
+        } catch (err) {
+          zohoSyncJob.errors += 1;
+          zohoSyncJob.lastError = err.message;
+        }
+        zohoSyncJob.done += 1;
+      }
+      zohoSyncJob.running = false;
+      zohoSyncJob.finishedAt = new Date().toISOString();
+      console.log(
+        `[Zoho CRM] Bulk sync finished: ${zohoSyncJob.synced}/${zohoSyncJob.total} synced, ${zohoSyncJob.errors} errors`
+      );
+    })();
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

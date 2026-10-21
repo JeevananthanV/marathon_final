@@ -9,6 +9,7 @@
     "dev": "nodemon server.js",
     "seed": "node seed.js && node seed-test.js",
     "db": "node db-view.js",
+    "zoho-auth": "node zoho-auth.js",
     "postinstall": "patch-package"
   },
   "dependencies": {
