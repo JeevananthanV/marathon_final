@@ -6,7 +6,7 @@
  *   1. Save participant to PostgreSQL          (already done by the caller)
  *   2. Create/update Lead in Zoho CRM          -> stores zohoLeadId
  *   3. Create/update Lead in Salesforce         -> stores salesforceLeadId
- *   4. Send WhatsApp confirmation               -> automated message
+ *   4. Send WhatsApp confirmation + entry QR    -> ONE combined message
  *   5. Send styled HTML email
  *   6. Send SMS
  *
@@ -27,6 +27,7 @@ import {
   sendPaymentWhatsApp,
   sendWhatsAppMessage,
   sendVerifyQrWhatsApp,
+  buildRegistrationQrCaption,
 } from "./whatsapp.js";
 
 function step(name, ok, detail) {
@@ -78,32 +79,27 @@ export async function runPostRegistrationFlow(participant, deps) {
     console.error("[Automation] Salesforce sync error:", err.message);
   }
 
-  // --- 3. WhatsApp -----------------------------------------------------
-  try {
-    const wa = await sendRegistrationWhatsApp(participant);
-    report.whatsapp = wa.ok
-      ? step("whatsapp", true, wa.mock ? "mock (no provider configured)" : `sent via ${wa.provider}`)
-      : step("whatsapp", false, wa.error);
-  } catch (err) {
-    report.whatsapp = step("whatsapp", false, err.message);
-    console.error("[Automation] WhatsApp error:", err.message);
-  }
-
-  // --- 3b. Entry QR code ----------------------------------------------
-  // Sent together with the confirmation: the runner shows this QR at the
-  // registration booth on race day, where scanning it verifies the runner.
+  // --- 3. WhatsApp: ONE message (confirmation text + entry QR image) ---
+  // The runner receives a single WhatsApp: the QR image with the full
+  // registration confirmation written in its caption.
   try {
     if (participant.verifyCode) {
-      const waQr = await sendVerifyQrWhatsApp(participant);
-      report.whatsappQr = waQr.ok
-        ? step("whatsapp_qr", true, waQr.mock ? "mock (no provider configured)" : `sent via ${waQr.provider}`)
-        : step("whatsapp_qr", false, waQr.error);
+      const waQr = await sendVerifyQrWhatsApp(participant, buildRegistrationQrCaption(participant));
+      report.whatsapp = waQr.ok
+        ? step("whatsapp", true, waQr.mock ? "mock (no provider configured)" : `sent via ${waQr.provider}`)
+        : step("whatsapp", false, waQr.error);
+      report.whatsappQr = report.whatsapp;
     } else {
+      const wa = await sendRegistrationWhatsApp(participant);
+      report.whatsapp = wa.ok
+        ? step("whatsapp", true, wa.mock ? "mock (no provider configured)" : `sent via ${wa.provider}`)
+        : step("whatsapp", false, wa.error);
       report.whatsappQr = step("whatsapp_qr", false, "no verify code");
     }
   } catch (err) {
+    report.whatsapp = step("whatsapp", false, err.message);
     report.whatsappQr = step("whatsapp_qr", false, err.message);
-    console.error("[Automation] WhatsApp QR error:", err.message);
+    console.error("[Automation] WhatsApp error:", err.message);
   }
 
   // --- 4/5. Email + SMS (non-blocking) --------------------------------

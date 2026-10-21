@@ -586,17 +586,35 @@ Scan this QR at the registration booth on race day for verification.
 ${buildVerifyUrl(participant)}`;
 }
 
+/** ONE message after registration: confirmation text + entry QR in a single WhatsApp. */
+export function buildRegistrationQrCaption(participant) {
+  return `Hello ${participant.fullName}! 🎉
+
+You have successfully registered for *Run Beyond Limits 2026*.
+
+📍 City: ${cityLabel(participant.cityId)}
+🏃 Category: ${raceLabel(participant.raceId)}
+👕 T-Shirt: ${participant.size}
+
+Your registration is confirmed and your spot is reserved. Payment instructions will be sent to your email shortly.
+
+Once payment is confirmed you will receive your *BIB number* and a link to download your participation certificate.
+
+🎟️ *Your Entry QR Code is below*
+Registration ID: ${regId(participant)}
+Show this QR at the registration booth on race day for instant verification.
+
+${buildVerifyUrl(participant)}
+
+See you on race day! 💪
+— Run Beyond Limits 2026 Team`;
+}
+
 /** Sent automatically right after the booth verifies the runner. */
 export function buildVerificationMessage(participant) {
-  const bib = participant.bibNumber ? `\n🏅 BIB: *${participant.bibNumber}*` : "";
   return `✅ *Verification successful!*
 
 Hi ${participant.fullName}, your identity has been verified for *Run Beyond Limits 2026*.
-
-🆔 Registration ID: ${regId(participant)}${bib}
-👕 T-Shirt: ${participant.size}
-🏃 Category: ${raceLabel(participant.raceId)}
-📍 City: ${cityLabel(participant.cityId)}
 
 You're all set — see you at the start line! 🏁
 
@@ -604,7 +622,7 @@ You're all set — see you at the start line! 🏁
 }
 
 /** Generate the runner's entry QR and send it — fires right after registration. */
-export async function sendVerifyQrWhatsApp(participant) {
+export async function sendVerifyQrWhatsApp(participant, caption) {
   if (!participant?.verifyCode) return { ok: false, error: "no_verify_code" };
   const buffer = await QRCode.toBuffer(buildVerifyUrl(participant), {
     width: 512,
@@ -615,6 +633,6 @@ export async function sendVerifyQrWhatsApp(participant) {
     participant.phone,
     buffer,
     `rbl-entry-qr-${participant._id ?? "new"}.png`,
-    buildQrCaption(participant)
+    caption || buildQrCaption(participant)
   );
 }
