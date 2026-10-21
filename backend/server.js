@@ -1570,6 +1570,268 @@ app.post("/api/verify/confirm", async (req, res) => {
   }
 });
 
+// Public: JSON lookup for one verify code (used by booth Scanner Mode).
+app.get("/api/verify/:code", async (req, res) => {
+  try {
+    const code = String(req.params.code || "").trim();
+    const row = code ? await get(`SELECT * FROM participants WHERE "verifyCode" = ?`, [code]) : null;
+    if (!row) return res.status(404).json({ success: false, error: "Invalid QR code" });
+    const p = rowToParticipant(row);
+    res.json({
+      success: true,
+      participant: {
+        registrationId: regId(p),
+        fullName: p.fullName,
+        size: p.size,
+        raceLabel: raceLabel(p.raceId),
+        cityLabel: cityLabel(p.cityId),
+        bibNumber: p.bibNumber || "",
+        paymentStatus: p.paymentStatus,
+        verifiedAt: p.verifiedAt || null,
+      },
+    });
+  } catch (err) {
+    console.error("Verify lookup error:", err);
+    res.status(500).json({ success: false, error: "Lookup failed" });
+  }
+});
+
+/** Booth Scanner Mode: open once on the staff phone, scan runner QRs continuously.
+ *  Player details appear instantly on scan — no link tap needed. Optional auto-verify. */
+function scannerPageHtml() {
+  const style = `
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      background: linear-gradient(160deg, #0f172a, #312e81); min-height: 100vh; color: #e2e8f0; }
+    .head { background: linear-gradient(135deg, #4f46e5, #7c3aed); color: #fff; padding: 14px 16px; }
+    .head h1 { font-size: 15px; letter-spacing: .6px; }
+    .head p { font-size: 11px; opacity: .85; margin-top: 3px; }
+    .wrap { padding: 12px 14px 26px; max-width: 480px; margin: 0 auto; }
+    .cam { background: #020617; border-radius: 16px; overflow: hidden; position: relative;
+      min-height: 300px; display: flex; align-items: center; justify-content: center; }
+    #reader { width: 100%; }
+    #reader video { width: 100% !important; object-fit: cover; border-radius: 16px; }
+    #reader__scan_region { background: transparent !important; min-height: 300px; }
+    #reader__dashboard { display: none !important; }
+    #reader__header_message { display: none !important; }
+    .hint { position: absolute; bottom: 10px; left: 0; right: 0; text-align: center;
+      font-size: 12px; color: #cbd5e1; text-shadow: 0 1px 4px #000; pointer-events: none; }
+    .opts { display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      background: #1e293b; border-radius: 12px; padding: 10px 14px; margin-top: 10px; font-size: 13px; }
+    .opts label { display: flex; align-items: center; gap: 8px; font-weight: 600; cursor: pointer; }
+    .opts input { width: 18px; height: 18px; accent-color: #22c55e; }
+    .count { font-size: 11.5px; color: #94a3b8; }
+    .panel { margin-top: 12px; border-radius: 16px; overflow: hidden; background: #fff; color: #0f172a;
+      display: none; box-shadow: 0 18px 40px rgba(0,0,0,.35); }
+    .panel.show { display: block; animation: pop .18s ease-out; }
+    @keyframes pop { from { transform: scale(.96); opacity: .4; } to { transform: scale(1); opacity: 1; } }
+    .phead { padding: 12px 16px; font-weight: 800; font-size: 14px; color: #fff; }
+    .phead.ok { background: linear-gradient(135deg, #16a34a, #15803d); }
+    .phead.warn { background: linear-gradient(135deg, #d97706, #b45309); }
+    .phead.bad { background: linear-gradient(135deg, #dc2626, #b91c1c); }
+    .pbody { padding: 12px 16px 14px; }
+    .name { font-size: 21px; font-weight: 800; }
+    .sub { font-size: 12px; color: #64748b; margin-top: 2px; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+    .cell { background: #f1f5f9; border-radius: 10px; padding: 8px 10px; }
+    .cell .k { font-size: 10px; color: #64748b; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; }
+    .cell .v { font-size: 14.5px; font-weight: 800; margin-top: 2px; }
+    .vbtn { width: 100%; margin-top: 10px; border: 0; border-radius: 12px; padding: 12px;
+      font-size: 14px; font-weight: 800; background: linear-gradient(135deg,#4f46e5,#7c3aed); color: #fff; cursor: pointer; }
+    .vbtn:disabled { opacity: .6; }
+    .wline { font-size: 11.5px; color: #475569; margin-top: 8px; text-align: center; }
+    .fatal { text-align: center; padding: 40px 18px; }
+    .fatal .big { font-size: 44px; }
+    .fatal h2 { font-size: 16px; margin: 8px 0 4px; }
+    .fatal p { font-size: 12.5px; color: #94a3b8; line-height: 1.6; }
+    .retry { margin-top: 12px; border: 0; border-radius: 10px; padding: 10px 22px; font-weight: 700;
+      background: #4f46e5; color: #fff; cursor: pointer; }
+    .foot { text-align: center; font-size: 10.5px; color: #64748b; margin-top: 14px; }`;
+
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scanner Mode — Run Beyond Limits 2026</title><style>${style}</style></head><body>
+<div class="head">
+  <h1>📷 SCANNER MODE — RUN BEYOND LIMITS 2026</h1>
+  <p>Point the camera at a runner's QR — details appear instantly. Keep this page open all day.</p>
+</div>
+<div class="wrap">
+  <div class="cam">
+    <div id="reader"></div>
+    <div class="hint" id="hintLine">Starting camera…</div>
+  </div>
+  <div class="opts">
+    <label><input type="checkbox" id="autoToggle" checked> ⚡ Auto-verify on scan</label>
+    <span class="count" id="countLine">0 scans</span>
+  </div>
+  <div class="panel" id="panel">
+    <div class="phead ok" id="phead">✅ VERIFIED</div>
+    <div class="pbody" id="pbody"></div>
+  </div>
+  <p class="foot">After verification the confirmation WhatsApp is sent to the runner automatically.</p>
+</div>
+<script>
+(function () {
+  var scanner = null, busy = false, lastCode = "", lastAt = 0, scans = 0;
+  var panel = document.getElementById("panel"), phead = document.getElementById("phead"),
+      pbody = document.getElementById("pbody"), hint = document.getElementById("hintLine"),
+      autoToggle = document.getElementById("autoToggle"), countLine = document.getElementById("countLine");
+
+  function beep(freq, ms) {
+    try {
+      var ctx = new (window.AudioContext || window.webkitAudioContext)();
+      var o = ctx.createOscillator(), g = ctx.createGain();
+      o.connect(g); g.connect(ctx.destination);
+      o.frequency.value = freq; o.type = "square"; g.gain.value = .05;
+      o.start(); setTimeout(function () { o.stop(); ctx.close(); }, ms);
+    } catch (e) {}
+  }
+  function buzz(pattern) { try { if (navigator.vibrate) navigator.vibrate(pattern); } catch (e) {} }
+
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+
+  function showCard(opts) {
+    panel.className = "panel show";
+    phead.className = "phead " + opts.tone;
+    phead.textContent = opts.title;
+    pbody.innerHTML = opts.html;
+    panel.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
+
+  function detailHtml(p) {
+    return '<div class="name">' + esc(p.fullName) + "</div>" +
+      '<div class="sub">' + esc(p.registrationId) + " · " + esc(p.raceLabel) + "</div>" +
+      '<div class="grid">' +
+      '<div class="cell"><div class="k">T-Shirt</div><div class="v">' + esc(p.size || "—") + "</div></div>" +
+      '<div class="cell"><div class="k">BIB Number</div><div class="v">' + esc(p.bibNumber || "—") + "</div></div>" +
+      '<div class="cell"><div class="k">City</div><div class="v">' + esc(p.cityLabel || "—") + "</div></div>" +
+      '<div class="cell"><div class="k">Payment</div><div class="v">' + esc(p.paymentStatus || "—") + "</div></div>" +
+      "</div>";
+  }
+
+  function invalidCard(msg, sub) {
+    beep(220, 220); buzz([220, 90, 220]);
+    showCard({ tone: "bad", title: "⛔ INVALID QR", html:
+      '<div class="name">' + esc(msg) + "</div>" +
+      '<div class="sub">' + esc(sub || "Not a registered runner QR.") + "</div>" });
+  }
+
+  async function confirmVerify(code, p) {
+    try {
+      var res = await fetch("/api/verify/confirm", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: code })
+      });
+      var data = await res.json().catch(function () { return {}; });
+      if (!res.ok || !data.success) {
+        showCard({ tone: "warn", title: "⚠️ VERIFIED — MESSAGE FAILED", html: detailHtml(p) +
+          '<div class="wline">WhatsApp: ' + esc(data.error || "not sent") + "</div>" });
+        beep(520, 140); buzz([90, 60, 90]);
+        return;
+      }
+      var wa = data.whatsapp || {};
+      showCard({ tone: "ok", title: "✅ VERIFIED — " + (wa.ok ? "WHATSAPP SENT" : "OK"), html: detailHtml(p) +
+        '<div class="wline">' + (wa.ok
+          ? "Confirmation sent via " + esc(wa.provider || "provider") + "."
+          : "WhatsApp: " + esc(wa.error || "not sent")) + "</div>" });
+      beep(950, 90); setTimeout(function () { beep(1320, 120); }, 110); buzz([70, 50, 140]);
+    } catch (e) {
+      invalidCard("Network error", e.message || "Could not reach the server.");
+    }
+  }
+
+  async function handleCode(code) {
+    busy = true; scans++; countLine.textContent = scans + (scans === 1 ? " scan" : " scans");
+    beep(880, 60);
+    try {
+      var res = await fetch("/api/verify/" + encodeURIComponent(code));
+      var data = await res.json().catch(function () { return {}; });
+      if (!res.ok || !data.success) return invalidCard("Invalid QR code", "Code not found in registrations.");
+      var p = data.participant;
+      if (p.verifiedAt) {
+        var when = "";
+        try { when = new Date(p.verifiedAt).toLocaleString(); } catch (e) { when = String(p.verifiedAt); }
+        showCard({ tone: "warn", title: "ℹ️ ALREADY VERIFIED", html: detailHtml(p) +
+          '<div class="wline">Verified at ' + esc(when) + "</div>" });
+        beep(500, 160); buzz([120, 80, 120]);
+      } else if (autoToggle.checked) {
+        await confirmVerify(code, p);
+      } else {
+        showCard({ tone: "ok", title: "👤 RUNNER FOUND", html: detailHtml(p) +
+          '<button class="vbtn" id="vbtn">✅ Verify &amp; Send WhatsApp</button>' });
+        beep(760, 100); buzz(90);
+        document.getElementById("vbtn").addEventListener("click", function () {
+          this.disabled = true; this.textContent = "Verifying…";
+          confirmVerify(code, p);
+        });
+      }
+    } catch (e) {
+      invalidCard("Network error", e.message || "Could not reach the server.");
+    } finally {
+      setTimeout(function () { busy = false; }, 800);
+    }
+  }
+
+  function onScan(text) {
+    if (busy) return;
+    var s = String(text || "");
+    var m = s.match(/code=([a-f0-9]{32})/i) || s.match(/([a-f0-9]{32})/i);
+    if (!m) return invalidCard("Not a runner QR", "This QR is not from Run Beyond Limits 2026.");
+    var code = m[1], now = Date.now();
+    if (code === lastCode && now - lastAt < 12000) return; // ignore repeats while runner stands there
+    lastCode = code; lastAt = now;
+    handleCode(code);
+  }
+
+  function fatal(msg, sub) {
+    document.querySelector(".cam").innerHTML =
+      '<div class="fatal"><div class="big">📷</div><h2>' + esc(msg) + "</h2><p>" + esc(sub) + "</p>" +
+      '<button class="retry" onclick="location.reload()">Retry</button></div>';
+  }
+
+  function start() {
+    if (typeof Html5Qrcode === "undefined") {
+      hint.textContent = "";
+      fatal("Scanner library failed to load", "Check the phone's internet connection, then tap Retry.");
+      return;
+    }
+    scanner = new Html5Qrcode("reader");
+    scanner.start(
+      { facingMode: "environment" },
+      { fps: 10, qrbox: { width: 230, height: 230 } },
+      function (text) { onScan(text); },
+      function () {}
+    ).then(function () {
+      hint.textContent = "Align the runner's QR inside the frame";
+    }).catch(function (err) {
+      hint.textContent = "";
+      fatal("Camera permission denied or unavailable",
+        "Allow camera access when asked. Scanner Mode needs the phone camera (open via the https:// link).");
+    });
+  }
+
+  var lib = document.createElement("script");
+  lib.src = "https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js";
+  lib.onload = start;
+  lib.onerror = function () {
+    hint.textContent = "";
+    fatal("Scanner library failed to load", "Check the phone's internet connection, then tap Retry.");
+  };
+  document.head.appendChild(lib);
+})();
+</script>
+</body></html>`;
+}
+
+// Public: booth Scanner Mode (continuous camera scanning, instant details, auto-verify)
+app.get("/scan", (req, res) => {
+  res.type("html").send(scannerPageHtml());
+});
+
 const registerLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 5, // Limit each IP to 5 registrations per window
