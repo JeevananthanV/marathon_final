@@ -22,7 +22,12 @@
 
 import { syncParticipantToZoho } from "./zoho.js";
 import { syncParticipantToSalesforce } from "./salesforce.js";
-import { sendRegistrationWhatsApp, sendPaymentWhatsApp, sendWhatsAppMessage } from "./whatsapp.js";
+import {
+  sendRegistrationWhatsApp,
+  sendPaymentWhatsApp,
+  sendWhatsAppMessage,
+  sendVerifyQrWhatsApp,
+} from "./whatsapp.js";
 
 function step(name, ok, detail) {
   return { step: name, ok, detail: detail || undefined };
@@ -40,7 +45,7 @@ function step(name, ok, detail) {
  */
 export async function runPostRegistrationFlow(participant, deps) {
   const { save, sendEmail, sendSms } = deps;
-  const report = { zoho: null, salesforce: null, whatsapp: null, email: "fired", sms: "fired" };
+  const report = { zoho: null, salesforce: null, whatsapp: null, whatsappQr: null, email: "fired", sms: "fired" };
   const results = [];
 
   // --- 1. Zoho CRM -----------------------------------------------------
@@ -84,6 +89,23 @@ export async function runPostRegistrationFlow(participant, deps) {
     console.error("[Automation] WhatsApp error:", err.message);
   }
 
+  // --- 3b. Entry QR code ----------------------------------------------
+  // Sent together with the confirmation: the runner shows this QR at the
+  // registration booth on race day, where scanning it verifies the runner.
+  try {
+    if (participant.verifyCode) {
+      const waQr = await sendVerifyQrWhatsApp(participant);
+      report.whatsappQr = waQr.ok
+        ? step("whatsapp_qr", true, waQr.mock ? "mock (no provider configured)" : `sent via ${waQr.provider}`)
+        : step("whatsapp_qr", false, waQr.error);
+    } else {
+      report.whatsappQr = step("whatsapp_qr", false, "no verify code");
+    }
+  } catch (err) {
+    report.whatsappQr = step("whatsapp_qr", false, err.message);
+    console.error("[Automation] WhatsApp QR error:", err.message);
+  }
+
   // --- 4/5. Email + SMS (non-blocking) --------------------------------
   Promise.resolve(sendEmail(participant)).catch((err) =>
     console.error("[Automation] Email error:", err.message)
@@ -95,7 +117,7 @@ export async function runPostRegistrationFlow(participant, deps) {
   for (const r of results) void r; // reserved for step timings
   console.log(
     `[Automation] Registration pipeline complete for ${participant.email}: ` +
-      `Zoho=${report.zoho?.ok} WhatsApp=${report.whatsapp?.ok} Salesforce=${report.salesforce?.ok}`
+      `Zoho=${report.zoho?.ok} WhatsApp=${report.whatsapp?.ok} Qr=${report.whatsappQr?.ok} Salesforce=${report.salesforce?.ok}`
   );
 
   return report;

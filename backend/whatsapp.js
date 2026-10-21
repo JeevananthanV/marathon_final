@@ -406,10 +406,10 @@ export async function sendWhatsAppMessage(phone, message) {
 /* Domain messages                                                     */
 /* ------------------------------------------------------------------ */
 
-const raceLabel = (raceId) =>
+export const raceLabel = (raceId) =>
   raceId === "5k" ? "5K Fun Run" : raceId === "10k" ? "10K Challenge" : "Half Marathon (21K)";
 
-const cityLabel = (cityId) =>
+export const cityLabel = (cityId) =>
   String(cityId || "").charAt(0).toUpperCase() + String(cityId || "").slice(1);
 
 export function buildRegistrationMessage(participant) {
@@ -456,5 +456,165 @@ export async function sendPaymentWhatsApp(participant, baseUrl) {
   return sendWhatsAppMessage(
     participant.phone,
     buildPaymentMessage(participant, baseUrl || process.env.BASE_URL || "http://localhost:5000")
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Images (entry QR code) + booth verification messages                */
+/* ------------------------------------------------------------------ */
+
+async function sendImageViaWeb(to, buffer, filename, caption) {
+  if (!waClient) return { ok: false, error: "web_client_not_ready" };
+  const pkg = await import("whatsapp-web.js");
+  const mod = pkg.default?.MessageMedia ? pkg.default : pkg;
+  const media = new mod.MessageMedia("image/png", buffer.toString("base64"), filename);
+  await waClient.sendMessage(`${to.replace("+", "")}@c.us`, media, caption ? { caption } : {});
+  return { ok: true };
+}
+
+async function sendImageViaCloudApi(to, buffer, filename, caption) {
+  // The Cloud API only sends media by media-id or public URL, so upload first.
+  const form = new FormData();
+  form.append("messaging_product", "whatsapp");
+  form.append("type", "image/png");
+  form.append("file", new Blob([buffer], { type: "image/png" }), filename);
+  const up = await fetch(`https://graph.facebook.com/${WA_API_VERSION}/${WA_PHONE_NUMBER_ID}/media`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${WA_ACCESS_TOKEN}` },
+    body: form,
+  });
+  const upText = await up.text();
+  if (!up.ok) throw new Error(`Meta media upload ${up.status}: ${upText}`);
+  const mediaId = JSON.parse(upText || "{}").id;
+  if (!mediaId) throw new Error("Meta media upload returned no id");
+
+  const res = await fetch(`https://graph.facebook.com/${WA_API_VERSION}/${WA_PHONE_NUMBER_ID}/messages`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${WA_ACCESS_TOKEN}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      messaging_product: "whatsapp",
+      recipient_type: "individual",
+      to,
+      type: "image",
+      image: { id: mediaId, ...(caption ? { caption } : {}) },
+    }),
+  });
+  const text = await res.text();
+  if (!res.ok) {
+    const err = new Error(`Meta Cloud API ${res.status}: ${text}`);
+    err.status = res.status;
+    throw err;
+  }
+  return JSON.parse(text || "{}");
+}
+
+/**
+ * Send a WhatsApp image (used for the runner's entry QR code).
+ * Same channel fallback as sendWhatsAppMessage; Twilio media needs a public
+ * URL we do not have, so it delivers the caption text (details + link) instead.
+ * Never throws.
+ */
+export async function sendWhatsAppImage(phone, imageBuffer, filename, caption) {
+  const to = normalizePhone(phone);
+
+  if (!to) {
+    console.warn(`[WhatsApp] Invalid phone number: ${phone}`);
+    return { ok: false, error: "invalid_phone" };
+  }
+
+  // 1. Linked WhatsApp Web session (a real number, no API keys needed)
+  if (WEB_ENABLED && waStatus === "connected") {
+    try {
+      await sendImageViaWeb(to, imageBuffer, filename, caption);
+      console.log(`[WhatsApp] Image ${filename} sent to ${to} via web client`);
+      return { ok: true, provider: "web", to };
+    } catch (err) {
+      console.warn(`[WhatsApp] Web image send failed: ${err.message} — trying other channels.`);
+    }
+  }
+
+  // 2. Meta Cloud API (upload media -> send by id)
+  if (cloudConfigured()) {
+    try {
+      const res = await sendImageViaCloudApi(to, imageBuffer, filename, caption);
+      const id = res?.messages?.[0]?.id;
+      console.log(`[WhatsApp] Image sent to ${to} via Meta Cloud API (id: ${id})`);
+      return { ok: true, provider: "cloud", to, id };
+    } catch (err) {
+      console.error(`[WhatsApp] Meta Cloud image failed: ${err.message}`);
+    }
+  }
+
+  // 3. Twilio — no public URL for the QR, so send the details/link as text
+  if (twilioConfigured()) {
+    try {
+      const r = await sendViaTwilio(to, caption || "Entry QR — Run Beyond Limits 2026");
+      console.log(`[WhatsApp] QR details sent to ${to} via Twilio (sid: ${r.sid})`);
+      return { ok: true, provider: "twilio", to, id: r.sid, textOnly: true };
+    } catch (err) {
+      console.error(`[WhatsApp] Twilio QR fallback failed: ${err.message}`);
+    }
+  }
+
+  // 4. Mock — log so the flow is still observable without credentials.
+  console.log(`\n[WhatsApp Mock Image -> ${to}] ${filename} (${imageBuffer?.length || 0} bytes)\n${caption}\n`);
+  return { ok: true, provider: "mock", to, mock: true };
+}
+
+/** Link that opens the booth verification page for this runner. */
+export function buildVerifyUrl(participant) {
+  const base = String(process.env.BASE_URL || "http://localhost:5000").replace(/\/+$/, "");
+  return `${base}/verify?code=${encodeURIComponent(participant?.verifyCode || "")}`;
+}
+
+/** Short human-readable registration id, e.g. RBL-00266. */
+export function regId(participant) {
+  return `RBL-${String(participant?._id ?? 0).padStart(5, "0")}`;
+}
+
+/** Text that travels with the QR image (readable even without scanning). */
+export function buildQrCaption(participant) {
+  return `🎟️ *Entry QR — Run Beyond Limits 2026*
+
+Name: ${participant.fullName}
+Registration ID: ${regId(participant)}
+T-Shirt: ${participant.size}
+Category: ${raceLabel(participant.raceId)}
+
+Scan this QR at the registration booth on race day for verification.
+
+${buildVerifyUrl(participant)}`;
+}
+
+/** Sent automatically right after the booth verifies the runner. */
+export function buildVerificationMessage(participant) {
+  const bib = participant.bibNumber ? `\n🏅 BIB: *${participant.bibNumber}*` : "";
+  return `✅ *Verification successful!*
+
+Hi ${participant.fullName}, your identity has been verified for *Run Beyond Limits 2026*.
+
+🆔 Registration ID: ${regId(participant)}${bib}
+👕 T-Shirt: ${participant.size}
+🏃 Category: ${raceLabel(participant.raceId)}
+📍 City: ${cityLabel(participant.cityId)}
+
+You're all set — see you at the start line! 🏁
+
+— Run Beyond Limits 2026 Team`;
+}
+
+/** Generate the runner's entry QR and send it — fires right after registration. */
+export async function sendVerifyQrWhatsApp(participant) {
+  if (!participant?.verifyCode) return { ok: false, error: "no_verify_code" };
+  const buffer = await QRCode.toBuffer(buildVerifyUrl(participant), {
+    width: 512,
+    margin: 2,
+    color: { dark: "#0f172a", light: "#ffffff" },
+  });
+  return sendWhatsAppImage(
+    participant.phone,
+    buffer,
+    `rbl-entry-qr-${participant._id ?? "new"}.png`,
+    buildQrCaption(participant)
   );
 }

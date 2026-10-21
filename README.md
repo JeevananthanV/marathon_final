@@ -52,6 +52,12 @@ A full-stack marathon event registration and management platform for **Run Beyon
 - Session persists on disk, so the QR is scanned only once; status/QR/test-send are managed from the admin tab
 - Self-healing browser startup: orphaned browsers are cleaned up automatically and init retries with backoff
 
+### 🎟️ Entry QR & Booth Verification
+- Every registration automatically receives an **entry QR code** on WhatsApp together with the confirmation message
+- Scanning the QR opens a mobile verification page showing **player name, registration ID, T-shirt size and marathon category**
+- Before the race, booth staff scan the runner's QR and tap **Verify Player** — the runner is marked verified and a *"verification successful"* WhatsApp message is sent to them automatically
+- Re-scans are idempotent: already-verified runners show a ✅ badge and are never messaged twice
+
 ### 🗺️ Multi-City Support
 - **Chennai** — Marina Beach coastal route
 - **Bengaluru** — Vidhana Soudha heritage route
@@ -96,6 +102,8 @@ A full-stack marathon event registration and management platform for **Run Beyon
 | `GET` | `/api/admin/whatsapp/status` | WhatsApp channel status + pending QR | Admin JWT |
 | `POST` | `/api/admin/whatsapp/qr` | (Re)start client to get a fresh QR | Admin JWT |
 | `POST` | `/api/admin/whatsapp/test` | Send a test WhatsApp message | Admin JWT |
+| `GET` | `/verify?code=` | Booth verification page (scan the runner's entry QR) | Public |
+| `POST` | `/api/verify/confirm` | Mark runner verified + auto WhatsApp confirmation | Public |
 
 ---
 
@@ -119,6 +127,9 @@ SMTP_FROM=your_email@gmail.com
 # WhatsApp automation: QR-linked web client (set to false to disable)
 WHATSAPP_WEB_CLIENT=true
 ```
+
+> `BASE_URL` must be reachable from the runner's phone and the race-day booth device
+> (use your LAN IP or deployed backend URL, not `localhost`, when testing from a phone).
 
 ```bash
 cd backend

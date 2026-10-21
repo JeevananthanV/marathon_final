@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+import crypto from "crypto";
 import { run, get, all, close, toPgSql } from "./db.js";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
@@ -22,6 +23,11 @@ import {
   ensureWebClientStarted,
   disconnectWebClient,
   normalizePhone,
+  buildVerificationMessage,
+  buildVerifyUrl,
+  regId,
+  raceLabel,
+  cityLabel,
 } from "./whatsapp.js";
 import { runPostRegistrationFlow, runPaymentConfirmedFlow } from "./automation.js";
 
@@ -1038,7 +1044,9 @@ CREATE TABLE IF NOT EXISTS participants (
   "sentThree" INTEGER NOT NULL DEFAULT 0,
   "sentTwentyFour" INTEGER NOT NULL DEFAULT 0,
   "sentThankYou" INTEGER NOT NULL DEFAULT 0,
-  "sentCertificate" INTEGER NOT NULL DEFAULT 0
+  "sentCertificate" INTEGER NOT NULL DEFAULT 0,
+  "verifyCode" TEXT NOT NULL DEFAULT '',
+  "verifiedAt" TEXT NOT NULL DEFAULT ''
 );
 CREATE TABLE IF NOT EXISTS contact_messages (
   _id SERIAL PRIMARY KEY,
@@ -1054,6 +1062,15 @@ CREATE TABLE IF NOT EXISTS admins (
   "password" TEXT NOT NULL
 );
 `);
+
+  // Booth verification columns (added later — no-op on fresh databases).
+  await run(`ALTER TABLE participants ADD COLUMN IF NOT EXISTS "verifyCode" TEXT NOT NULL DEFAULT ''`);
+  await run(`ALTER TABLE participants ADD COLUMN IF NOT EXISTS "verifiedAt" TEXT NOT NULL DEFAULT ''`);
+  // Backfill codes for rows registered before the feature existed.
+  await run(
+    `UPDATE participants SET "verifyCode" = md5(random()::text || clock_timestamp()::text || _id::text)
+     WHERE "verifyCode" = '' OR "verifyCode" IS NULL`
+  );
 }
 
 await ensureSchema();
@@ -1070,6 +1087,8 @@ function participantDefaults(p = {}) {
     registrationDate: new Date().toISOString(),
     finishTime: "",
     raceStatus: "Pending",
+    verifyCode: crypto.randomBytes(16).toString("hex"), // booth-verification QR secret
+    verifiedAt: "",
     sentNotifications: {
       sevenDaysBefore: false,
       threeDaysBefore: false,
@@ -1115,6 +1134,8 @@ function rowToParticipant(row) {
     registrationDate: row.registrationDate,
     finishTime: row.finishTime,
     raceStatus: row.raceStatus,
+    verifyCode: row.verifyCode || "",
+    verifiedAt: row.verifiedAt || "",
     sentNotifications: {
       sevenDaysBefore: !!row.sentSeven,
       threeDaysBefore: !!row.sentThree,
@@ -1130,21 +1151,21 @@ function rowToParticipant(row) {
       this.address, this.city, this.state, this.pincode, this.size, this.cityId, this.raceId,
       this.paymentStatus, this.paymentTxnId, this.bibNumber, this.salesforceLeadId, this.zohoLeadId,
       this.registrationDate instanceof Date ? this.registrationDate.toISOString() : this.registrationDate,
-      this.finishTime, this.raceStatus,
+      this.finishTime, this.raceStatus, this.verifyCode || "", this.verifiedAt || "",
       ...sentToColumns(sn),
     ];
     if (!this._id) {
       const r = await run(`INSERT INTO participants (
         "fullName", "dob", "gender", "phone", "email", "emergencyContact", "address", "city", "state", "pincode",
         "size", "cityId", "raceId", "paymentStatus", "paymentTxnId", "bibNumber", "salesforceLeadId", "zohoLeadId",
-        "registrationDate", "finishTime", "raceStatus", "sentSeven", "sentThree", "sentTwentyFour", "sentThankYou", "sentCertificate"
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING _id`, params);
+        "registrationDate", "finishTime", "raceStatus", "verifyCode", "verifiedAt", "sentSeven", "sentThree", "sentTwentyFour", "sentThankYou", "sentCertificate"
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING _id`, params);
       this._id = r.rows[0]._id;
     } else {
       await run(`UPDATE participants SET
         "fullName"=?, "dob"=?, "gender"=?, "phone"=?, "email"=?, "emergencyContact"=?, "address"=?, "city"=?, "state"=?, "pincode"=?,
         "size"=?, "cityId"=?, "raceId"=?, "paymentStatus"=?, "paymentTxnId"=?, "bibNumber"=?, "salesforceLeadId"=?, "zohoLeadId"=?,
-        "registrationDate"=?, "finishTime"=?, "raceStatus"=?, "sentSeven"=?, "sentThree"=?, "sentTwentyFour"=?, "sentThankYou"=?, "sentCertificate"=?
+        "registrationDate"=?, "finishTime"=?, "raceStatus"=?, "verifyCode"=?, "verifiedAt"=?, "sentSeven"=?, "sentThree"=?, "sentTwentyFour"=?, "sentThankYou"=?, "sentCertificate"=?
         WHERE _id=?`, [...params, this._id]);
     }
     return this;
@@ -1313,6 +1334,210 @@ app.get("/", (req, res) => {
   res.send("Run Beyond Limits 2026 API is running smoothly. 🏃‍♂️💨");
 });
 
+/* ------------------------------------------------------------------ */
+/* Booth verification (scanning the runner's entry QR)                 */
+/* ------------------------------------------------------------------ */
+
+function escapeHtml(v) {
+  return String(v ?? "").replace(/[&<>"']/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])
+  );
+}
+
+function formatVerifiedAt(iso) {
+  try {
+    return new Date(iso).toLocaleString("en-IN", {
+      timeZone: "Asia/Kolkata",
+      dateStyle: "medium",
+      timeStyle: "short",
+    });
+  } catch {
+    return String(iso || "");
+  }
+}
+
+/** Self-contained mobile-friendly page shown when a runner's QR is scanned. */
+function verifyPageHtml(p) {
+  const style = `
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      background: linear-gradient(160deg, #0f172a, #312e81); min-height: 100vh;
+      display: flex; align-items: center; justify-content: center; padding: 18px; }
+    .card { background: #fff; width: 100%; max-width: 430px; border-radius: 20px;
+      overflow: hidden; box-shadow: 0 25px 60px rgba(0,0,0,.4); }
+    .head { background: linear-gradient(135deg, #4f46e5, #7c3aed); color: #fff; padding: 18px 20px; }
+    .head h1 { font-size: 16px; letter-spacing: .6px; }
+    .head p { font-size: 11.5px; opacity: .85; margin-top: 4px; }
+    .body { padding: 18px 20px; }
+    .pill { display: inline-block; font-size: 11.5px; font-weight: 700; padding: 5px 12px;
+      border-radius: 999px; margin-bottom: 12px; }
+    .pending { background: #fef3c7; color: #92400e; }
+    .ok { background: #dcfce7; color: #166534; }
+    .row { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0;
+      border-bottom: 1px dashed #e2e8f0; font-size: 13.5px; }
+    .row:last-of-type { border-bottom: 0; }
+    .label { color: #64748b; font-weight: 600; }
+    .value { font-weight: 700; text-align: right; }
+    .btn { width: 100%; margin-top: 14px; border: 0; border-radius: 12px; padding: 13px;
+      font-size: 14.5px; font-weight: 700; background: linear-gradient(135deg,#4f46e5,#7c3aed);
+      color: #fff; cursor: pointer; }
+    .btn:disabled { opacity: .6; }
+    .note { margin-top: 10px; font-size: 11px; color: #94a3b8; text-align: center; }
+    .err { color: #b91c1c; font-size: 12.5px; margin-top: 10px; text-align: center; display: none; }
+    .success { text-align: center; padding: 10px 0 4px; display: none; }
+    .success .big, .invalid .big { font-size: 46px; }
+    .success h2 { color: #166534; font-size: 18px; margin: 6px 0; }
+    .success p { font-size: 13px; color: #475569; }
+    .invalid { padding: 38px 20px; text-align: center; }
+    .invalid h2 { margin: 10px 0 6px; font-size: 17px; color: #b91c1c; }
+    .invalid p { font-size: 12.5px; color: #64748b; line-height: 1.6; }
+  `;
+
+  const head = `
+    <div class="head">
+      <h1>RUN BEYOND LIMITS 2026</h1>
+      <p>🏁 Registration Booth — Runner Verification</p>
+    </div>`;
+
+  if (!p) {
+    return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Invalid QR — Run Beyond Limits 2026</title><style>${style}</style></head><body>
+<div class="card">${head}
+  <div class="invalid">
+    <div class="big">⚠️</div>
+    <h2>Invalid QR code</h2>
+    <p>This QR code does not match any registered runner.<br>Ask the runner to open the original QR from their WhatsApp or visit the help desk.</p>
+  </div>
+</div></body></html>`;
+  }
+
+  const verified = !!p.verifiedAt;
+  const rows = `
+    <div class="row"><span class="label">Player Name</span><span class="value">${escapeHtml(p.fullName)}</span></div>
+    <div class="row"><span class="label">Registration ID</span><span class="value">${escapeHtml(regId(p))}</span></div>
+    <div class="row"><span class="label">T-Shirt Size</span><span class="value">${escapeHtml(p.size)}</span></div>
+    <div class="row"><span class="label">Marathon Category</span><span class="value">${escapeHtml(raceLabel(p.raceId))}</span></div>
+    <div class="row"><span class="label">City</span><span class="value">${escapeHtml(cityLabel(p.cityId))}</span></div>
+    <div class="row"><span class="label">BIB Number</span><span class="value">${p.bibNumber ? escapeHtml(p.bibNumber) : "—"}</span></div>
+    <div class="row"><span class="label">Payment</span><span class="value">${escapeHtml(p.paymentStatus)}</span></div>`;
+
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Verify Runner — Run Beyond Limits 2026</title><style>${style}</style></head><body>
+<div class="card">${head}
+  <div class="body">
+    <div id="pendingBox">
+      <span class="pill ${verified ? "ok" : "pending"}" id="statusPill">${verified ? "✅ VERIFIED" : "⏳ PENDING VERIFICATION"}</span>
+      ${verified ? `<p class="note" style="text-align:left;margin-top:-4px">Verified on ${escapeHtml(formatVerifiedAt(p.verifiedAt))}</p>` : ""}
+      ${rows}
+      ${verified ? "" : `<button class="btn" id="verifyBtn">✅ Verify Player &amp; Send Confirmation</button>`}
+      <p class="err" id="errLine"></p>
+      <p class="note">After verification a confirmation message is sent automatically to the runner's WhatsApp.</p>
+    </div>
+    <div class="success" id="successBox">
+      <div class="big">🎉</div>
+      <h2>Verification Successful</h2>
+      <p id="waLine"></p>
+      <p class="note">${escapeHtml(p.fullName)} · ${escapeHtml(regId(p))}</p>
+    </div>
+  </div>
+</div>
+<script>
+(function () {
+  var CODE = ${JSON.stringify(String(p.verifyCode || ""))};
+  var btn = document.getElementById("verifyBtn");
+  if (!btn) return;
+  btn.addEventListener("click", async function () {
+    btn.disabled = true;
+    btn.textContent = "Verifying…";
+    try {
+      var res = await fetch("/api/verify/confirm", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: CODE })
+      });
+      var data = await res.json().catch(function () { return {}; });
+      if (!res.ok || !data.success) throw new Error(data.error || "Verification failed");
+      document.getElementById("pendingBox").style.display = "none";
+      document.getElementById("successBox").style.display = "block";
+      var wa = data.whatsapp || {};
+      document.getElementById("waLine").textContent = wa.ok
+        ? "Confirmation sent to the runner's WhatsApp via " + (wa.provider || "provider") + "."
+        : "Runner verified. (WhatsApp: " + (wa.error || "not sent") + ")";
+    } catch (e) {
+      var el = document.getElementById("errLine");
+      el.textContent = e.message || "Verification failed";
+      el.style.display = "block";
+      btn.disabled = false;
+      btn.textContent = "✅ Verify Player & Send Confirmation";
+    }
+  });
+})();
+</script>
+</body></html>`;
+}
+
+// Public: booth verification page (opened by scanning a runner's entry QR)
+app.get("/verify", async (req, res) => {
+  try {
+    const code = String(req.query.code || "").trim();
+    const row = code ? await get(`SELECT * FROM participants WHERE "verifyCode" = ?`, [code]) : null;
+    res.type("html").send(verifyPageHtml(row ? rowToParticipant(row) : null));
+  } catch (err) {
+    console.error("Verify page error:", err);
+    res.status(500).type("html").send(verifyPageHtml(null));
+  }
+});
+
+// Public: confirm booth verification -> marks the runner verified and sends
+// the "verification successful" WhatsApp message automatically.
+app.post("/api/verify/confirm", async (req, res) => {
+  const code = String(req.body?.code || "").trim();
+  if (!code) return res.status(400).json({ success: false, error: "code is required" });
+
+  try {
+    const row = await get(`SELECT * FROM participants WHERE "verifyCode" = ?`, [code]);
+    const participant = row ? rowToParticipant(row) : null;
+    if (!participant) return res.status(404).json({ success: false, error: "Invalid QR code" });
+
+    const view = {
+      registrationId: regId(participant),
+      fullName: participant.fullName,
+      size: participant.size,
+      raceId: participant.raceId,
+      cityId: participant.cityId,
+      bibNumber: participant.bibNumber || "",
+      verifiedAt: participant.verifiedAt || null,
+    };
+
+    // Already verified at the booth -> idempotent, do not message again.
+    if (participant.verifiedAt) {
+      return res.json({ success: true, already: true, participant: view });
+    }
+
+    participant.verifiedAt = new Date().toISOString();
+    await participant.save();
+
+    let wa = null;
+    try {
+      wa = await sendWhatsAppMessage(participant.phone, buildVerificationMessage(participant));
+    } catch (err) {
+      wa = { ok: false, error: err.message };
+    }
+
+    console.log(
+      `[Verify] ${regId(participant)} ${participant.fullName} verified — WhatsApp: ${wa?.ok ? wa.provider : wa?.error || "failed"}`
+    );
+
+    view.verifiedAt = participant.verifiedAt;
+    res.json({ success: true, whatsapp: wa, participant: view });
+  } catch (err) {
+    console.error("Verify confirm error:", err);
+    res.status(500).json({ success: false, error: "Verification failed. Please try again." });
+  }
+});
+
 const registerLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 5, // Limit each IP to 5 registrations per window
@@ -1363,10 +1588,12 @@ app.post("/api/register", registerLimiter, async (req, res) => {
       success: true,
       message: "Registration created successfully!",
       participant: newParticipant,
+      verifyUrl: buildVerifyUrl(newParticipant),
       automation: {
         zoho: automation.zoho?.ok ? "synced" : automation.zoho?.detail || "skipped",
         salesforce: automation.salesforce?.ok ? "synced" : automation.salesforce?.detail || "skipped",
         whatsapp: automation.whatsapp?.ok ? automation.whatsapp.detail : automation.whatsapp?.detail,
+        whatsappQr: automation.whatsappQr?.detail || "skipped",
       },
     });
   } catch (error) {
