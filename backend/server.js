@@ -10,6 +10,7 @@ import nodemailer from "nodemailer";
 import QRCode from "qrcode";
 import twilio from "twilio";
 import fs from "fs";
+import http from "http";
 import { z } from "zod";
 import rateLimit from "express-rate-limit";
 import mongoSanitize from "express-mongo-sanitize";
@@ -1363,9 +1364,9 @@ const authenticateAdmin = (req, res, next) => {
 
 // --- API ROUTES ---
 
-// Public: Health Check / Root Route
-app.get("/", (req, res) => {
-  res.send("Run Beyond Limits 2026 API is running smoothly. 🏃‍♂️💨");
+// Public: Health Check (the website itself is served at "/" via the frontend proxy below)
+app.get("/api/health", (req, res) => {
+  res.json({ ok: true, site: "Run Beyond Limits 2026", time: new Date().toISOString() });
 });
 
 /* ------------------------------------------------------------------ */
@@ -2406,6 +2407,52 @@ app.post("/api/admin/zoho/sync-all", authenticateAdmin, async (req, res) => {
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
+});
+
+/* ------------------------------------------------------------------ */
+/* Public website: forward page requests to the frontend server        */
+/* (TanStack Start on :5173). /api, /verify and /scan stay native.     */
+/* ------------------------------------------------------------------ */
+
+const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173";
+
+function proxyToFrontend(req, res) {
+  let target;
+  try {
+    target = new URL(req.url, FRONTEND_URL);
+  } catch {
+    res.status(404).send("Not found");
+    return;
+  }
+  const preq = http.request(
+    {
+      hostname: target.hostname,
+      port: target.port || 80,
+      path: target.pathname + target.search,
+      method: req.method,
+      headers: { ...req.headers, host: target.host },
+    },
+    (pres) => {
+      res.writeHead(pres.statusCode, pres.headers);
+      pres.pipe(res);
+    }
+  );
+  preq.on("error", () => {
+    if (!res.headersSent) {
+      res
+        .status(502)
+        .type("text/plain")
+        .send("The website is starting up. Please retry in a few seconds.");
+    }
+  });
+  preq.setTimeout(25000, () => preq.destroy(new Error("frontend timeout")));
+  req.pipe(preq);
+}
+
+app.get("*", (req, res, next) => {
+  if (req.path.startsWith("/api")) return next();
+  if (!req.accepts("html")) return next();
+  proxyToFrontend(req, res);
 });
 
 // Start Server

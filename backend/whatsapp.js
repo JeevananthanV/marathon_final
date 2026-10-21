@@ -604,8 +604,6 @@ Once payment is confirmed you will receive your *BIB number* and a link to downl
 Registration ID: ${regId(participant)}
 Show this QR at the registration booth on race day for instant verification.
 
-${buildVerifyUrl(participant)}
-
 See you on race day! 💪
 — Run Beyond Limits 2026 Team`;
 }
