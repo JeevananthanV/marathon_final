@@ -87,6 +87,18 @@ function requireCredentials() {
   }
 }
 
+/** Align ZOHO_API_URL with the data centre (.in/.com) that issued the token. */
+function syncApiDomain(data) {
+  const domain = typeof data?.api_domain === "string" ? data.api_domain.replace(/\/$/, "") : "";
+  if (!domain) return false;
+  const apiUrl = `${domain}/crm/v3`;
+  if ((process.env.ZOHO_API_URL || "").trim() === apiUrl) return false;
+  setEnvValue("ZOHO_API_URL", apiUrl);
+  process.env.ZOHO_API_URL = apiUrl;
+  console.log(`  Data centre detected: ${domain} → ZOHO_API_URL updated to ${apiUrl}`);
+  return true;
+}
+
 async function main() {
   const arg = process.argv[2];
 
@@ -111,6 +123,7 @@ async function main() {
       client_secret: CLIENT_SECRET,
       grant_type: "refresh_token"
     });
+    syncApiDomain(data);
     console.log("✔ Zoho credentials are valid — access token acquired.");
     console.log(`  Expires in: ${Math.round((Number(data.expires_in) || 3600) / 60)} minutes (auto-refreshes)`);
     if (data.scope) console.log(`  Scopes: ${data.scope}`);
@@ -133,6 +146,7 @@ async function main() {
   }
 
   setEnvValue("ZOHO_REFRESH_TOKEN", data.refresh_token);
+  syncApiDomain(data);
   console.log("✔ Refresh token obtained and written to backend/.env (ZOHO_REFRESH_TOKEN).");
   if (data.scope) console.log(`  Scopes: ${data.scope}`);
   console.log("\n  Next steps:");
