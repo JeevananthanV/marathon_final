@@ -17,7 +17,7 @@ interface WaStatus {
   channels: { web: boolean; cloud: boolean; twilio: boolean };
 }
 
-const API = `${import.meta.env.VITE_API_URL || "http://localhost:5000"}/api/admin/whatsapp`;
+const API = `${import.meta.env.VITE_API_URL || (typeof window === "undefined" ? "http://localhost:5000" : "")}/api/admin/whatsapp`;
 
 const STATUS_META: Record<WaStatus["status"], { label: string; cls: string; icon: typeof CheckCircle2 }> = {
   connected: { label: "Connected", cls: "bg-success/20 text-success-light border-success/30", icon: CheckCircle2 },

@@ -33,7 +33,7 @@ function CertificatesPage() {
     setLoading(true);
     setResult(null);
 
-    fetch(`${import.meta.env.VITE_API_URL || (import.meta.env.PROD ? "https://marathon-website-2.onrender.com" : "http://localhost:5000")}/api/certificate/lookup?query=${encodeURIComponent(query.trim())}`)
+    fetch(`${import.meta.env.VITE_API_URL || (typeof window === "undefined" ? "http://localhost:5000" : "")}/api/certificate/lookup?query=${encodeURIComponent(query.trim())}`)
       .then(async (res) => {
         if (!res.ok) {
           const errData = await res.json().catch(() => ({}));
@@ -114,7 +114,7 @@ function CertificatesPage() {
               </div>
 
               <a
-                href={`${import.meta.env.VITE_API_URL || (import.meta.env.PROD ? "https://marathon-website-2.onrender.com" : "http://localhost:5000")}/api/certificate/download/${result.id}`}
+                href={`${import.meta.env.VITE_API_URL || (typeof window === "undefined" ? "http://localhost:5000" : "")}/api/certificate/download/${result.id}`}
                 target="_blank"
                 rel="noreferrer"
                 className="w-full inline-flex items-center justify-center gap-2 rounded-full bg-navy text-white px-8 py-3.5 font-bold shadow-soft hover:scale-102 transition-all duration-300"

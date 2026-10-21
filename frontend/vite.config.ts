@@ -6,4 +6,13 @@ export default defineConfig({
     // nitro/vite builds from this
     server: { entry: "server" },
   },
+  vite: {
+    server: {
+      // Let the dev server serve API calls same-origin (works on every device,
+      // not just this PC). Production/proxied traffic hits the backend directly.
+      proxy: {
+        "/api": { target: "http://localhost:5000", changeOrigin: true },
+      },
+    },
+  },
 });
