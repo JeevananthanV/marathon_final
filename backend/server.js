@@ -1621,25 +1621,29 @@ function scannerPageHtml() {
     .opts label { display: flex; align-items: center; gap: 8px; font-weight: 600; cursor: pointer; }
     .opts input { width: 18px; height: 18px; accent-color: #22c55e; }
     .count { font-size: 11.5px; color: #94a3b8; }
-    .panel { margin-top: 12px; border-radius: 16px; overflow: hidden; background: #fff; color: #0f172a;
+    .panel { margin-top: 12px; border-radius: 20px; overflow: hidden; background: #fff; color: #0f172a;
       display: none; box-shadow: 0 18px 40px rgba(0,0,0,.35); }
     .panel.show { display: block; animation: pop .18s ease-out; }
     @keyframes pop { from { transform: scale(.96); opacity: .4; } to { transform: scale(1); opacity: 1; } }
     .phead { padding: 12px 16px; font-weight: 800; font-size: 14px; color: #fff; }
-    .phead.ok { background: linear-gradient(135deg, #16a34a, #15803d); }
-    .phead.warn { background: linear-gradient(135deg, #d97706, #b45309); }
     .phead.bad { background: linear-gradient(135deg, #dc2626, #b91c1c); }
-    .pbody { padding: 12px 16px 14px; }
-    .name { font-size: 21px; font-weight: 800; }
-    .sub { font-size: 12px; color: #64748b; margin-top: 2px; }
-    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
-    .cell { background: #f1f5f9; border-radius: 10px; padding: 8px 10px; }
-    .cell .k { font-size: 10px; color: #64748b; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; }
-    .cell .v { font-size: 14.5px; font-weight: 800; margin-top: 2px; }
+    .pbody { padding: 16px 18px; }
+    .pill { display: inline-block; font-size: 11.5px; font-weight: 800; padding: 5px 12px; border-radius: 999px; }
+    .pending { background: #fef3c7; color: #92400e; }
+    .ok { background: #dcfce7; color: #166534; }
+    .verifiedOn { font-size: 11.5px; color: #94a3b8; margin-top: 6px; }
+    .row { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0;
+      border-bottom: 1px dashed #e2e8f0; font-size: 13.5px; }
+    .row:last-of-type { border-bottom: 0; }
+    .label { color: #64748b; font-weight: 600; }
+    .value { font-weight: 700; text-align: right; }
+    .name { font-size: 19px; font-weight: 800; }
+    .sub { font-size: 12px; color: #64748b; margin-top: 4px; }
     .vbtn { width: 100%; margin-top: 10px; border: 0; border-radius: 12px; padding: 12px;
       font-size: 14px; font-weight: 800; background: linear-gradient(135deg,#4f46e5,#7c3aed); color: #fff; cursor: pointer; }
     .vbtn:disabled { opacity: .6; }
-    .wline { font-size: 11.5px; color: #475569; margin-top: 8px; text-align: center; }
+    .err { display: none; color: #b91c1c; font-size: 12px; margin-top: 8px; text-align: center; }
+    .wline { font-size: 11.5px; color: #475569; margin-top: 10px; text-align: center; }
     .fatal { text-align: center; padding: 40px 18px; }
     .fatal .big { font-size: 44px; }
     .fatal h2 { font-size: 16px; margin: 8px 0 4px; }
@@ -1664,17 +1668,14 @@ function scannerPageHtml() {
     <label><input type="checkbox" id="autoToggle" checked> ⚡ Auto-verify on scan</label>
     <span class="count" id="countLine">0 scans</span>
   </div>
-  <div class="panel" id="panel">
-    <div class="phead ok" id="phead">✅ VERIFIED</div>
-    <div class="pbody" id="pbody"></div>
-  </div>
+  <div class="panel" id="panel"><div id="cardInner"></div></div>
   <p class="foot">After verification the confirmation WhatsApp is sent to the runner automatically.</p>
 </div>
 <script>
 (function () {
-  var scanner = null, busy = false, lastCode = "", lastAt = 0, scans = 0;
-  var panel = document.getElementById("panel"), phead = document.getElementById("phead"),
-      pbody = document.getElementById("pbody"), hint = document.getElementById("hintLine"),
+  var scanner = null, busy = false, lastCode = "", lastAt = 0, scans = 0, currentCode = "";
+  var panel = document.getElementById("panel"), cardInner = document.getElementById("cardInner"),
+      hint = document.getElementById("hintLine"),
       autoToggle = document.getElementById("autoToggle"), countLine = document.getElementById("countLine");
 
   function beep(freq, ms) {
@@ -1694,50 +1695,76 @@ function scannerPageHtml() {
     });
   }
 
-  function showCard(opts) {
-    panel.className = "panel show";
-    phead.className = "phead " + opts.tone;
-    phead.textContent = opts.title;
-    pbody.innerHTML = opts.html;
-    panel.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  function fmtWhen(iso) {
+    try { return new Date(iso).toLocaleString(); } catch (e) { return String(iso || ""); }
   }
 
-  function detailHtml(p) {
-    return '<div class="name">' + esc(p.fullName) + "</div>" +
-      '<div class="sub">' + esc(p.registrationId) + " · " + esc(p.raceLabel) + "</div>" +
-      '<div class="grid">' +
-      '<div class="cell"><div class="k">T-Shirt</div><div class="v">' + esc(p.size || "—") + "</div></div>" +
-      '<div class="cell"><div class="k">BIB Number</div><div class="v">' + esc(p.bibNumber || "—") + "</div></div>" +
-      '<div class="cell"><div class="k">City</div><div class="v">' + esc(p.cityLabel || "—") + "</div></div>" +
-      '<div class="cell"><div class="k">Payment</div><div class="v">' + esc(p.paymentStatus || "—") + "</div></div>" +
-      "</div>";
+  function rowsHtml(p) {
+    function row(k, v) {
+      return '<div class="row"><span class="label">' + k + '</span><span class="value">' + esc(v) + "</span></div>";
+    }
+    return row("Player Name", p.fullName) +
+      row("Registration ID", p.registrationId) +
+      row("T-Shirt Size", p.size || "—") +
+      row("Marathon Category", p.raceLabel) +
+      row("City", p.cityLabel || "—") +
+      row("BIB Number", p.bibNumber || "—") +
+      row("Payment", p.paymentStatus || "—");
+  }
+
+  function showRunnerCard(p, state, extra) {
+    extra = extra || {};
+    var pill = state === "verified"
+      ? '<span class="pill ok">✅ VERIFIED</span>'
+      : '<span class="pill pending">⏳ PENDING VERIFICATION</span>';
+    var vOn = (state === "verified" && extra.verifiedOn)
+      ? '<p class="verifiedOn">Verified on ' + esc(extra.verifiedOn) + "</p>" : "";
+    var btn = (state === "pending" && extra.showButton)
+      ? '<button class="vbtn" id="vbtn">✅ Verify Player &amp; Send WhatsApp</button>' +
+        '<p class="err" id="errLine"></p>' : "";
+    var wline = extra.waLine ? '<p class="wline">' + esc(extra.waLine) + "</p>" : "";
+    panel.className = "panel show";
+    cardInner.innerHTML = '<div class="pbody">' + pill + vOn + rowsHtml(p) + btn + wline + "</div>";
+    panel.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    if (btn) {
+      document.getElementById("vbtn").addEventListener("click", function () {
+        this.disabled = true; this.textContent = "Verifying…";
+        doVerify(p);
+      });
+    }
   }
 
   function invalidCard(msg, sub) {
     beep(220, 220); buzz([220, 90, 220]);
-    showCard({ tone: "bad", title: "⛔ INVALID QR", html:
+    panel.className = "panel show";
+    cardInner.innerHTML = '<div class="phead bad">⛔ INVALID QR</div><div class="pbody">' +
       '<div class="name">' + esc(msg) + "</div>" +
-      '<div class="sub">' + esc(sub || "Not a registered runner QR.") + "</div>" });
+      '<div class="sub">' + esc(sub || "Not a registered runner QR.") + "</div></div>";
+    panel.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }
 
-  async function confirmVerify(code, p) {
+  async function doVerify(p) {
     try {
       var res = await fetch("/api/verify/confirm", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: code })
+        body: JSON.stringify({ code: currentCode })
       });
       var data = await res.json().catch(function () { return {}; });
       if (!res.ok || !data.success) {
-        showCard({ tone: "warn", title: "⚠️ VERIFIED — MESSAGE FAILED", html: detailHtml(p) +
-          '<div class="wline">WhatsApp: ' + esc(data.error || "not sent") + "</div>" });
-        beep(520, 140); buzz([90, 60, 90]);
+        var el = document.getElementById("errLine");
+        if (el) { el.textContent = data.error || "Verification failed. Please try again."; el.style.display = "block"; }
+        var b = document.getElementById("vbtn");
+        if (b) { b.disabled = false; b.textContent = "✅ Verify Player & Send WhatsApp"; }
+        beep(240, 200); buzz([200, 90, 200]);
         return;
       }
       var wa = data.whatsapp || {};
-      showCard({ tone: "ok", title: "✅ VERIFIED — " + (wa.ok ? "WHATSAPP SENT" : "OK"), html: detailHtml(p) +
-        '<div class="wline">' + (wa.ok
-          ? "Confirmation sent via " + esc(wa.provider || "provider") + "."
-          : "WhatsApp: " + esc(wa.error || "not sent")) + "</div>" });
+      showRunnerCard(p, "verified", {
+        verifiedOn: fmtWhen((data.participant && data.participant.verifiedAt) || new Date().toISOString()),
+        waLine: wa.ok
+          ? "Confirmation sent to the runner's WhatsApp via " + (wa.provider || "provider") + "."
+          : "Runner verified. (WhatsApp: " + (wa.error || "not sent") + ")"
+      });
       beep(950, 90); setTimeout(function () { beep(1320, 120); }, 110); buzz([70, 50, 140]);
     } catch (e) {
       invalidCard("Network error", e.message || "Could not reach the server.");
@@ -1753,21 +1780,16 @@ function scannerPageHtml() {
       if (!res.ok || !data.success) return invalidCard("Invalid QR code", "Code not found in registrations.");
       var p = data.participant;
       if (p.verifiedAt) {
-        var when = "";
-        try { when = new Date(p.verifiedAt).toLocaleString(); } catch (e) { when = String(p.verifiedAt); }
-        showCard({ tone: "warn", title: "ℹ️ ALREADY VERIFIED", html: detailHtml(p) +
-          '<div class="wline">Verified at ' + esc(when) + "</div>" });
+        showRunnerCard(p, "verified", {
+          verifiedOn: fmtWhen(p.verifiedAt),
+          waLine: "Already verified earlier — no new message sent."
+        });
         beep(500, 160); buzz([120, 80, 120]);
       } else if (autoToggle.checked) {
-        await confirmVerify(code, p);
+        await doVerify(p);
       } else {
-        showCard({ tone: "ok", title: "👤 RUNNER FOUND", html: detailHtml(p) +
-          '<button class="vbtn" id="vbtn">✅ Verify &amp; Send WhatsApp</button>' });
+        showRunnerCard(p, "pending", { showButton: true });
         beep(760, 100); buzz(90);
-        document.getElementById("vbtn").addEventListener("click", function () {
-          this.disabled = true; this.textContent = "Verifying…";
-          confirmVerify(code, p);
-        });
       }
     } catch (e) {
       invalidCard("Network error", e.message || "Could not reach the server.");
@@ -1783,7 +1805,7 @@ function scannerPageHtml() {
     if (!m) return invalidCard("Not a runner QR", "This QR is not from Run Beyond Limits 2026.");
     var code = m[1], now = Date.now();
     if (code === lastCode && now - lastAt < 12000) return; // ignore repeats while runner stands there
-    lastCode = code; lastAt = now;
+    lastCode = code; lastAt = now; currentCode = code;
     handleCode(code);
   }
 
