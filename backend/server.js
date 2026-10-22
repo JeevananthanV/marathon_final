@@ -2004,6 +2004,189 @@ app.get("/api/admin/participants", authenticateAdmin, async (req, res) => {
   }
 });
 
+/* ------------------------------------------------------------------ */
+/* Razorpay online payments                                            */
+/*                                                                     */
+/* Registration stays "Pending" until checkout succeeds. On success we */
+/* mark Paid, assign a BIB and run the exact same pipeline as a manual */
+/* admin approval (CRM sync, WhatsApp confirmation, email + SMS).      */
+/* Configured via RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET in .env —      */
+/* without them every endpoint reports "not configured" cleanly.       */
+/* ------------------------------------------------------------------ */
+
+// Keep in sync with frontend/src/data/marathon.ts (RACES[].fee).
+const RACE_FEES_INR = { "21k": 999, "10k": 799, "5k": 499 };
+const paymentLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 30 });
+
+function razorpayConfig() {
+  const keyId = String(process.env.RAZORPAY_KEY_ID || "").trim();
+  const keySecret = String(process.env.RAZORPAY_KEY_SECRET || "").trim();
+  return {
+    enabled: Boolean(keyId && keySecret),
+    keyId,
+    keySecret,
+    currency: "INR",
+  };
+}
+
+async function ensureBibOnPaid(participant) {
+  if (participant.paymentStatus !== "Paid" || participant.bibNumber) return;
+  // Unique per city+race: count of already-paid runners in the same cohort.
+  const count = await Participant.countDocuments({
+    cityId: participant.cityId,
+    raceId: participant.raceId,
+    paymentStatus: "Paid",
+  });
+  const cityPrefix = participant.cityId.substring(0, 3).toUpperCase();
+  const racePrefix = participant.raceId.toUpperCase();
+  const nextNum = String(count + 1).padStart(4, "0");
+  participant.bibNumber = `${cityPrefix}-${racePrefix}-${nextNum}`;
+}
+
+async function applyPaymentConfirmedEffects(participant) {
+  const baseUrl = process.env.BASE_URL || "http://localhost:5000";
+  const automation = await runPaymentConfirmedFlow(participant, {
+    save: (p) => p.save(),
+    baseUrl,
+  });
+  sendPaymentConfirmationEmail(participant);
+  sendSMS(
+    participant.phone,
+    `Hi ${participant.fullName}, your payment for Run Beyond Limits 2026 is confirmed! ` +
+      `BIB: ${participant.bibNumber}. Download certificate: ${baseUrl}/api/certificate/download/${participant._id}`
+  );
+  return automation;
+}
+
+// Public: checkout config for the frontend (keyId is publishable; secret never leaves the server)
+app.get("/api/payment/config", (req, res) => {
+  const { enabled, keyId, currency } = razorpayConfig();
+  res.json({ enabled, keyId: enabled ? keyId : "", currency });
+});
+
+// Public: create a Razorpay order — amount comes from the server-side fee map
+app.post("/api/payment/order", paymentLimiter, async (req, res) => {
+  const cfg = razorpayConfig();
+  if (!cfg.enabled) {
+    return res.status(503).json({ error: "Online payment is not configured yet." });
+  }
+  const participantId = String(req.body?.participantId || "");
+  if (!participantId) return res.status(400).json({ error: "participantId is required" });
+
+  try {
+    const participant = await Participant.findById(participantId);
+    if (!participant) return res.status(404).json({ error: "Participant not found" });
+    if (participant.paymentStatus === "Paid") {
+      return res.json({ success: true, alreadyPaid: true, bibNumber: participant.bibNumber || "" });
+    }
+    const feeInr = RACE_FEES_INR[participant.raceId];
+    if (!feeInr) {
+      return res.status(400).json({ error: `No fee configured for race "${participant.raceId}"` });
+    }
+
+    const auth =
+      "Basic " + Buffer.from(`${cfg.keyId}:${cfg.keySecret}`).toString("base64");
+    const r = await fetch("https://api.razorpay.com/v1/orders", {
+      method: "POST",
+      headers: { Authorization: auth, "Content-Type": "application/json" },
+      signal: AbortSignal.timeout(20000), // never hang the request if the gateway is slow/unreachable
+      body: JSON.stringify({
+        amount: Math.round(feeInr * 100), // paise
+        currency: cfg.currency,
+        receipt: `rbl-${participant._id}-${Date.now()}`,
+        notes: {
+          participantId: String(participant._id),
+          registrationId: regId(participant),
+          name: participant.fullName,
+          race: participant.raceId,
+          city: participant.cityId,
+        },
+      }),
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) {
+      const desc = data?.error?.description || `HTTP ${r.status}`;
+      console.error(`[Razorpay] order create failed: HTTP ${r.status} — ${desc}`);
+      return res.status(502).json({ error: `Could not start payment: ${desc}` });
+    }
+    res.json({
+      success: true,
+      orderId: data.id,
+      amount: data.amount,
+      currency: data.currency,
+      keyId: cfg.keyId,
+      participantId: participant._id,
+    });
+  } catch (err) {
+    console.error("[Razorpay] order error:", err);
+    const timedOut = err?.name === "TimeoutError" || /timeout|abort/i.test(String(err?.message));
+    res
+      .status(502)
+      .json({ error: timedOut ? "Payment gateway is not responding. Please try again." : err.message });
+  }
+});
+
+// Public: verify checkout signature -> mark Paid + standard payment pipeline
+app.post("/api/payment/verify", paymentLimiter, async (req, res) => {
+  const cfg = razorpayConfig();
+  if (!cfg.enabled) {
+    return res.status(503).json({ error: "Online payment is not configured yet." });
+  }
+  const { participantId, orderId, paymentId, signature } = req.body || {};
+  if (!participantId || !orderId || !paymentId || !signature) {
+    return res.status(400).json({ error: "Missing payment verification fields" });
+  }
+
+  try {
+    // HMAC-SHA256(order_id|payment_id, key_secret) must match the signature.
+    const expected = crypto
+      .createHmac("sha256", cfg.keySecret)
+      .update(`${orderId}|${paymentId}`)
+      .digest("hex");
+    const a = Buffer.from(expected, "utf8");
+    const b = Buffer.from(String(signature), "utf8");
+    const valid = a.length === b.length && crypto.timingSafeEqual(a, b);
+    if (!valid) {
+      console.error(`[Razorpay] signature mismatch for order ${orderId}`);
+      return res.status(400).json({ error: "Payment signature verification failed" });
+    }
+
+    const participant = await Participant.findById(String(participantId));
+    if (!participant) return res.status(404).json({ error: "Participant not found" });
+
+    if (participant.paymentStatus !== "Paid") {
+      participant.paymentStatus = "Paid";
+      participant.paymentTxnId = String(paymentId);
+      await ensureBibOnPaid(participant);
+      await participant.save();
+
+      const automation = await applyPaymentConfirmedEffects(participant);
+      console.log(
+        `[Razorpay] ${regId(participant)} ${participant.fullName} paid via ${paymentId} — BIB ${participant.bibNumber}`
+      );
+      return res.json({
+        success: true,
+        paymentStatus: "Paid",
+        paymentId,
+        bibNumber: participant.bibNumber,
+        automation,
+      });
+    }
+
+    // Idempotent: already marked Paid (e.g. retry after a network drop).
+    res.json({
+      success: true,
+      paymentStatus: "Paid",
+      paymentId,
+      bibNumber: participant.bibNumber,
+      alreadyPaid: true,
+    });
+  } catch (err) {
+    console.error("[Razorpay] verify error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Admin: Update Payment Status & Bib Assignment
 app.put("/api/admin/participants/:id/payment", authenticateAdmin, async (req, res) => {
   const { paymentStatus, paymentTxnId } = req.body;
@@ -2019,40 +2202,16 @@ app.put("/api/admin/participants/:id/payment", authenticateAdmin, async (req, re
     }
 
     // Automatically generate Bib if paid and not already set
-    if (paymentStatus === "Paid" && !participant.bibNumber) {
-      // Find count of paid participants in the same race and city to make it unique
-      const count = await Participant.countDocuments({
-        cityId: participant.cityId,
-        raceId: participant.raceId,
-        paymentStatus: "Paid"
-      });
-      const cityPrefix = participant.cityId.substring(0, 3).toUpperCase();
-      const racePrefix = participant.raceId.toUpperCase();
-      const nextNum = String(count + 1).padStart(4, "0");
-      participant.bibNumber = `${cityPrefix}-${racePrefix}-${nextNum}`;
-    }
+    await ensureBibOnPaid(participant);
 
     await participant.save();
 
     // --- Payment automation pipeline -----------------------------------
     // Re-sync both CRMs with the BIB number, then notify the runner.
-    const BASE_URL = process.env.BASE_URL || "http://localhost:5000";
     let automation = null;
 
     if (paymentStatus === "Paid") {
-      automation = await runPaymentConfirmedFlow(participant, {
-        save: (p) => p.save(),
-        baseUrl: BASE_URL,
-      });
-
-      sendPaymentConfirmationEmail(participant);
-
-      const downloadLink = `${BASE_URL}/api/certificate/download/${participant._id}`;
-      sendSMS(
-        participant.phone,
-        `Hi ${participant.fullName}, your payment for Run Beyond Limits 2026 is confirmed! ` +
-          `BIB: ${participant.bibNumber}. Download certificate: ${downloadLink}`
-      );
+      automation = await applyPaymentConfirmedEffects(participant);
     } else {
       // Keep CRM records in step even when payment is not approved.
       try {

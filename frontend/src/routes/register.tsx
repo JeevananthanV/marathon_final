@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
-import { Check, ChevronLeft, ChevronRight, CircleCheck, MapPin } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Check, ChevronLeft, ChevronRight, CircleCheck, Clock, MapPin } from "lucide-react";
 import { RACES, EVENT, CITIES } from "@/data/marathon";
 import { z } from "zod";
 import { toast } from "sonner";
@@ -17,6 +17,26 @@ export const Route = createFileRoute("/register")({
 
 const STEPS = ["City", "Race", "Details", "Address", "T-Shirt", "Review"] as const;
 const SIZES = ["XS", "S", "M", "L", "XL", "XXL"] as const;
+
+// Same-origin by default so it works on every device; VITE_API_URL can override.
+const API =
+  import.meta.env.VITE_API_URL || (typeof window === "undefined" ? "http://localhost:5000" : "");
+
+type PayConfig = { enabled: boolean; keyId: string; currency: string };
+
+function loadRazorpayScript(): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const w = window as unknown as { Razorpay?: unknown };
+    if (w.Razorpay) return resolve();
+    const s = document.createElement("script");
+    s.src = "https://checkout.razorpay.com/v1/checkout.js";
+    s.async = true;
+    s.onload = () => resolve();
+    s.onerror = () =>
+      reject(new Error("Could not load Razorpay checkout. Check your internet and try again."));
+    document.body.appendChild(s);
+  });
+}
 
 const detailsSchema = z.object({
   fullName: z.string().trim().min(2, "Enter your full name").max(100),
@@ -43,8 +63,20 @@ function RegisterPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [done, setDone] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [payCfg, setPayCfg] = useState<PayConfig | null>(null);
+  const [participantId, setParticipantId] = useState<number | null>(null);
+  const [paidBib, setPaidBib] = useState<string | null>(null); // null = not paid yet
+  const [paying, setPaying] = useState(false);
 
   const race = useMemo(() => RACES.find((r) => r.id === raceId)!, [raceId]);
+
+  // Ask the backend once whether Razorpay is configured (keys present).
+  useEffect(() => {
+    fetch(`${API}/api/payment/config`, { cache: "no-store" })
+      .then((r) => r.json())
+      .then((c: PayConfig) => setPayCfg(c))
+      .catch(() => setPayCfg({ enabled: false, keyId: "", currency: "INR" }));
+  }, []);
 
   function next() {
     if (step === 2) {
@@ -82,7 +114,7 @@ function RegisterPage() {
         raceId,
         size,
       };
-      const res = await fetch(`${import.meta.env.VITE_API_URL || (typeof window === "undefined" ? "http://localhost:5000" : "")}/api/register`, {
+      const res = await fetch(`${API}/api/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -91,8 +123,22 @@ function RegisterPage() {
       if (!res.ok) {
         throw new Error(data?.error || "Registration failed. Please try again.");
       }
-      setDone(true);
-      toast.success("Registration confirmed! Check your email for details.");
+      const id: number | undefined = data?.participant?._id;
+      if (typeof id === "number") setParticipantId(id);
+
+      // Online payment configured? -> open Razorpay checkout right away.
+      const cfg =
+        payCfg ??
+        (await fetch(`${API}/api/payment/config`, { cache: "no-store" })
+          .then((r) => r.json())
+          .catch(() => ({ enabled: false, keyId: "", currency: "INR" }) as PayConfig));
+      setPayCfg(cfg);
+      if (cfg.enabled && typeof id === "number") {
+        await startPayment(id); // sets done/paidBib itself
+      } else {
+        setDone(true);
+        toast.success("Registration confirmed! Your spot is reserved.");
+      }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Something went wrong. Please try again.";
       toast.error(message);
@@ -101,19 +147,145 @@ function RegisterPage() {
     }
   }
 
+  // Creates the server-side order, opens Razorpay checkout, then verifies
+  // the signature. On success the backend marks the runner Paid + assigns BIB.
+  async function startPayment(id: number) {
+    setPaying(true);
+    try {
+      const ordRes = await fetch(`${API}/api/payment/order`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ participantId: id }),
+      });
+      const ord = await ordRes.json();
+      if (!ordRes.ok) throw new Error(ord?.error || "Could not start the payment. Please try again.");
+      if (ord.alreadyPaid) {
+        setPaidBib(ord.bibNumber || "");
+        setDone(true);
+        return;
+      }
+
+      await loadRazorpayScript();
+      const w = window as unknown as {
+        Razorpay: new (options: Record<string, unknown>) => { open: () => void };
+      };
+      const rzp = new w.Razorpay({
+        key: ord.keyId,
+        amount: ord.amount,
+        currency: ord.currency,
+        order_id: ord.orderId,
+        name: "Run Beyond Limits 2026",
+        description: `${race.distance} KM ${race.type} — ₹${race.fee}`,
+        prefill: { name: details.fullName, email: details.email, contact: details.phone },
+        notes: { race: raceId, city: cityId },
+        theme: { color: "#F97316" },
+        handler: async (resp: {
+          razorpay_order_id: string;
+          razorpay_payment_id: string;
+          razorpay_signature: string;
+        }) => {
+          try {
+            const vRes = await fetch(`${API}/api/payment/verify`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                participantId: id,
+                orderId: resp.razorpay_order_id,
+                paymentId: resp.razorpay_payment_id,
+                signature: resp.razorpay_signature,
+              }),
+            });
+            const v = await vRes.json();
+            if (!vRes.ok) throw new Error(v?.error || "Payment verification failed. Please contact support.");
+            setPaidBib(v.bibNumber || "");
+            setDone(true);
+            toast.success("Payment successful! Your registration is confirmed.");
+          } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : "Payment verification failed.";
+            toast.error(message);
+            setDone(true);
+          }
+        },
+        modal: {
+          ondismiss: () => {
+            setDone(true);
+            toast.info("Payment cancelled — you can complete it any time below.");
+          },
+        },
+      });
+      rzp.open();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Could not start the payment.";
+      toast.error(message);
+      setDone(true); // show the reserved screen with a Pay Now retry
+    } finally {
+      setPaying(false);
+    }
+  }
+
   if (done) {
+    const paid = paidBib !== null;
+    const payable = !paid && participantId !== null && !!payCfg?.enabled;
     return (
       <section className="min-h-[70vh] grid place-items-center gradient-page px-4 py-16">
         <div className="max-w-lg text-center bg-white rounded-3xl p-10 shadow-elevated">
-          <CircleCheck className="mx-auto h-16 w-16 text-emerald" />
-          <h1 className="mt-4 font-display text-3xl font-extrabold text-charcoal">You're In!</h1>
-          <p className="mt-2 text-muted-foreground">
-            Your spot for the <span className="font-semibold text-charcoal">{race.distance} KM {race.type}</span> is
-            reserved. A confirmation with payment link has been sent to your email.
-          </p>
-          <Link to="/" className="mt-6 inline-flex rounded-full gradient-orange text-white px-6 py-3 font-semibold">
-            Back to Home
-          </Link>
+          {paid ? (
+            <>
+              <CircleCheck className="mx-auto h-16 w-16 text-emerald" />
+              <h1 className="mt-4 font-display text-3xl font-extrabold text-charcoal">Payment Successful!</h1>
+              <p className="mt-2 text-muted-foreground">
+                Your spot for the{" "}
+                <span className="font-semibold text-charcoal">{race.distance} KM {race.type}</span> is confirmed.
+                {paidBib && (
+                  <>
+                    {" "}
+                    Your BIB number is{" "}
+                    <span className="font-mono font-bold text-navy">{paidBib}</span>.
+                  </>
+                )}
+              </p>
+              <p className="mt-2 text-sm text-muted-foreground">
+                A confirmation with your QR code has been sent to your WhatsApp.
+              </p>
+              <Link to="/" className="mt-6 inline-flex rounded-full gradient-orange text-white px-6 py-3 font-semibold">
+                Back to Home
+              </Link>
+            </>
+          ) : payable ? (
+            <>
+              <Clock className="mx-auto h-16 w-16 text-amber-500" />
+              <h1 className="mt-4 font-display text-3xl font-extrabold text-charcoal">Registration Reserved!</h1>
+              <p className="mt-2 text-muted-foreground">
+                Your spot for the{" "}
+                <span className="font-semibold text-charcoal">{race.distance} KM {race.type}</span> is reserved.
+                Complete the <span className="font-semibold text-charcoal">₹{race.fee}</span> payment to confirm it.
+              </p>
+              <button
+                onClick={() => participantId !== null && startPayment(participantId)}
+                disabled={paying}
+                className="mt-6 inline-flex rounded-full gradient-orange text-white px-8 py-3 font-semibold disabled:opacity-60"
+              >
+                {paying ? "Opening payment…" : `Pay ₹${race.fee} Now`}
+              </button>
+              <div className="mt-4">
+                <Link to="/" className="text-sm text-muted-foreground underline underline-offset-4">
+                  Back to Home
+                </Link>
+              </div>
+            </>
+          ) : (
+            <>
+              <CircleCheck className="mx-auto h-16 w-16 text-emerald" />
+              <h1 className="mt-4 font-display text-3xl font-extrabold text-charcoal">You're In!</h1>
+              <p className="mt-2 text-muted-foreground">
+                Your spot for the <span className="font-semibold text-charcoal">{race.distance} KM {race.type}</span> is
+                reserved. Our team will share the payment details with you on WhatsApp.
+              </p>
+              <Link to="/" className="mt-6 inline-flex rounded-full gradient-orange text-white px-6 py-3 font-semibold">
+                Back to Home
+              </Link>
+            </>
+          )}
         </div>
       </section>
     );
@@ -279,7 +451,11 @@ function RegisterPage() {
                 disabled={submitting}
                 className="inline-flex items-center gap-2 rounded-full bg-orange hover:bg-[#EA580C] text-white px-6 py-3 font-semibold shadow-soft hover:scale-105 transition disabled:opacity-60 disabled:cursor-not-allowed disabled:scale-100"
               >
-                {submitting ? "Submitting..." : "Proceed to Payment"}
+                {submitting
+                  ? "Submitting..."
+                  : payCfg && !payCfg.enabled
+                    ? "Register Now"
+                    : "Proceed to Payment"}
               </button>
             )}
           </div>
