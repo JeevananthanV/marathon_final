@@ -38,7 +38,7 @@ import {
   raceLabel,
   cityLabel,
 } from "./whatsapp.js";
-import { runPostRegistrationFlow, runPaymentConfirmedFlow } from "./automation.js";
+import { runPostRegistrationFlow, runPaymentConfirmedFlow, automationQueue, automationEnabled } from "./automation.js";
 
 dotenv.config();
 
@@ -1372,7 +1372,13 @@ const authenticateAdmin = (req, res, next) => {
 
 // Public: Health Check (the website itself is served at "/" via the frontend proxy below)
 app.get("/api/health", (req, res) => {
-  res.json({ ok: true, site: "Run Beyond Limits 2026", time: new Date().toISOString() });
+  res.json({
+    ok: true,
+    site: "Run Beyond Limits 2026",
+    time: new Date().toISOString(),
+    uptimeSec: Math.round(process.uptime()),
+    automation: automationEnabled() ? automationQueue.stats() : { status: "off" },
+  });
 });
 
 /* ------------------------------------------------------------------ */
@@ -1895,7 +1901,10 @@ app.get("/scan", (req, res) => {
 
 const registerLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // Limit each IP to 5 registrations per window
+  // Event-day friendly: runners often share one venue Wi-Fi IP, so this must
+  // allow a healthy group per IP while still stopping scripted abuse.
+  // Tune with REGISTER_RATE_LIMIT in .env for event-day capacity.
+  max: parseInt(process.env.REGISTER_RATE_LIMIT || "30", 10),
   message: { error: "Too many registrations from this IP, please try again later." }
 });
 
@@ -1925,35 +1934,38 @@ app.post("/api/register", registerLimiter, async (req, res) => {
     // --- Automation pipeline -------------------------------------------
     // Zoho CRM lead -> Salesforce lead -> WhatsApp -> email -> SMS.
     // Each step is isolated so a CRM/messaging outage never fails registration.
-    const automation = await runPostRegistrationFlow(newParticipant, {
-      save: (p) => p.save(),
-      sendEmail: sendRegistrationEmail,
-      sendSms: (p) => {
-        const raceLabel =
-          p.raceId === "5k" ? "5K Fun Run" : p.raceId === "10k" ? "10K Challenge" : "Half Marathon (21K)";
-        return sendSMS(
-          p.phone,
-          `Hi ${p.fullName}, your registration for Run Beyond Limits 2026 (${raceLabel}) is confirmed! ` +
-            `Your BIB number and certificate will be issued once payment is received.`
-        );
-      },
-    });
+    // Runs through the bounded background queue so a burst of 100+ simultaneous
+    // registrations gets an instant response and pipelines fan out smoothly.
+    if (automationEnabled()) {
+      automationQueue.push(async () => {
+        await runPostRegistrationFlow(newParticipant, {
+          save: (p) => p.save(),
+          sendEmail: sendRegistrationEmail,
+          sendSms: (p) => {
+            const raceLabel =
+              p.raceId === "5k" ? "5K Fun Run" : p.raceId === "10k" ? "10K Challenge" : "Half Marathon (21K)";
+            return sendSMS(
+              p.phone,
+              `Hi ${p.fullName}, your registration for Run Beyond Limits 2026 (${raceLabel}) is confirmed! ` +
+                `Your BIB number and certificate will be issued once payment is received.`
+            );
+          },
+        });
+      });
+    }
 
     res.status(201).json({
       success: true,
       message: "Registration created successfully!",
       participant: newParticipant,
       verifyUrl: buildVerifyUrl(newParticipant),
-      automation: {
-        zoho: automation.zoho?.ok ? "synced" : automation.zoho?.detail || "skipped",
-        salesforce: automation.salesforce?.ok ? "synced" : automation.salesforce?.detail || "skipped",
-        whatsapp: automation.whatsapp?.ok ? automation.whatsapp.detail : automation.whatsapp?.detail,
-        whatsappQr: automation.whatsappQr?.detail || "skipped",
-      },
+      automation: automationEnabled()
+        ? { status: "queued", queue: automationQueue.stats() }
+        : { status: "skipped", detail: "AUTOMATION_MODE=off" },
     });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ error: "Validation Error", details: error.errors });
+      return res.status(400).json({ error: "Validation Error", details: error.issues || error.errors });
     }
     if (error && (/UNIQUE constraint failed/i.test(String(error.message)) || /duplicate key value violates unique constraint/i.test(String(error.message)) || (error && error.code === "23505"))) {
       return res.status(400).json({ error: "Email or Phone already registered." });
@@ -2045,17 +2057,22 @@ async function ensureBibOnPaid(participant) {
 
 async function applyPaymentConfirmedEffects(participant) {
   const baseUrl = process.env.BASE_URL || "http://localhost:5000";
-  const automation = await runPaymentConfirmedFlow(participant, {
-    save: (p) => p.save(),
-    baseUrl,
+  // Runs in the background queue: payment verification responds instantly with
+  // the BIB, while CRM syncs + WhatsApp/email/SMS fan out smoothly even if
+  // several runners pay within the same seconds.
+  automationQueue.push(async () => {
+    await runPaymentConfirmedFlow(participant, {
+      save: (p) => p.save(),
+      baseUrl,
+    });
+    sendPaymentConfirmationEmail(participant);
+    sendSMS(
+      participant.phone,
+      `Hi ${participant.fullName}, your payment for Run Beyond Limits 2026 is confirmed! ` +
+        `BIB: ${participant.bibNumber}. Download certificate: ${baseUrl}/api/certificate/download/${participant._id}`
+    );
   });
-  sendPaymentConfirmationEmail(participant);
-  sendSMS(
-    participant.phone,
-    `Hi ${participant.fullName}, your payment for Run Beyond Limits 2026 is confirmed! ` +
-      `BIB: ${participant.bibNumber}. Download certificate: ${baseUrl}/api/certificate/download/${participant._id}`
-  );
-  return automation;
+  return { status: "queued", queue: automationQueue.stats() };
 }
 
 // Public: checkout config for the frontend (keyId is publishable; secret never leaves the server)

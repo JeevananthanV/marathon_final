@@ -167,4 +167,69 @@ export async function runPaymentConfirmedFlow(participant, deps) {
   return report;
 }
 
-export { sendWhatsAppMessage };
+/* --------------------------------------------------------------------- */
+/* Background automation queue                                            */
+/*                                                                     */
+/* On event day dozens of runners can register within the same seconds. */
+/* The HTTP request only writes the participant row and responds        */
+/* instantly; CRM syncs + WhatsApp/email/SMS run here in the background */
+/* through a small FIFO queue with bounded concurrency so we never:     */
+/*   - make a runner wait seconds for the CRM/messaging pipeline, or    */
+/*   - hammer Zoho/WhatsApp with 100 calls at the same instant.         */
+/* Set AUTOMATION_MODE=off in .env to skip pipelines entirely          */
+/* (useful for load testing or as an event-day safety valve).          */
+/* --------------------------------------------------------------------- */
+
+class TaskQueue {
+  constructor(concurrency = 4) {
+    this.concurrency = concurrency;
+    this.running = 0;
+    this.pending = [];
+    this.failed = 0;
+    this.completed = 0;
+  }
+
+  push(task) {
+    this.pending.push(task);
+    this.#drain();
+  }
+
+  #drain() {
+    while (this.running < this.concurrency && this.pending.length) {
+      const task = this.pending.shift();
+      this.running++;
+      Promise.resolve()
+        .then(task)
+        .then(() => {
+          this.completed++;
+        })
+        .catch((err) => {
+          this.failed++;
+          console.error("[Automation Queue] task failed:", err?.message || err);
+        })
+        .finally(() => {
+          this.running--;
+          this.#drain();
+        });
+    }
+  }
+
+  stats() {
+    return {
+      running: this.running,
+      pending: this.pending.length,
+      completed: this.completed,
+      failed: this.failed,
+    };
+  }
+}
+
+// 4 pipelines at a time: fast enough for 100+ registrations in a burst,
+// gentle enough for Zoho (~200 API calls/min) and the WhatsApp web client.
+const automationQueue = new TaskQueue(4);
+
+function automationEnabled() {
+  return String(process.env.AUTOMATION_MODE || "").trim().toLowerCase() !== "off";
+}
+
+export { sendWhatsAppMessage, automationQueue, automationEnabled };
