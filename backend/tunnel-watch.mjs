@@ -225,6 +225,42 @@ function readHubTunnelUrl() {
   }
 }
 
+function readExternalTunnelUrls() {
+  // A tunnel may have been started outside this watcher (e.g. manually after a
+  // restart). Look at recent shell outputs so we adopt it instead of killing it.
+  try {
+    const root = path.join(os.homedir(), ".local", "share", "opencode", "shell");
+    const files = [];
+    for (const hashDir of fs.readdirSync(root)) {
+      const d = path.join(root, hashDir);
+      try {
+        if (!fs.statSync(d).isDirectory()) continue;
+      } catch {
+        continue;
+      }
+      for (const f of fs.readdirSync(d)) {
+        if (!f.endsWith(".out")) continue;
+        const fp = path.join(d, f);
+        try {
+          const st = fs.statSync(fp);
+          if (Date.now() - st.mtimeMs < 6 * 3600_000) files.push({ fp, mtime: st.mtimeMs });
+        } catch {}
+      }
+    }
+    const urls = [];
+    for (const { fp } of files.sort((a, b) => b.mtime - a.mtime).slice(0, 5)) {
+      try {
+        const tail = fs.readFileSync(fp, "utf8").slice(-4000);
+        const m = tail.match(/https:\/\/[a-z0-9-]+\.trycloudflare\.com/);
+        if (m) urls.push(m[0]);
+      } catch {}
+    }
+    return urls;
+  } catch {
+    return [];
+  }
+}
+
 async function tunnelHealthy(url) {
   if (!url) return false;
   // /scan is served natively by the backend — stable health probe.
@@ -239,13 +275,15 @@ async function adoptTunnel(url) {
 }
 
 async function ensureTunnel() {
-  // 1) remember our own URL, else the hub's advertised URL (bootstrap)
+  // 1) remember our own URL, else discover an externally started one, else the hub's
   const candidates = [];
-  const logged = readLogTunnelUrl();
-  const hubbed = readHubTunnelUrl();
-  if (state.tunnelUrl) candidates.push(state.tunnelUrl);
-  if (logged && !candidates.includes(logged)) candidates.push(logged);
-  if (hubbed && !candidates.includes(hubbed)) candidates.push(hubbed);
+  const add = (u) => {
+    if (u && !candidates.includes(u)) candidates.push(u);
+  };
+  add(state.tunnelUrl);
+  add(readLogTunnelUrl());
+  for (const u of readExternalTunnelUrls()) add(u);
+  add(readHubTunnelUrl());
 
   for (const url of candidates) {
     if (await tunnelHealthy(url)) {
