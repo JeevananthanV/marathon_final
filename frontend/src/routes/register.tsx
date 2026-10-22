@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { Check, ChevronLeft, ChevronRight, CircleCheck, Clock, MapPin } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, CircleCheck, Clock, CreditCard, Banknote, MapPin } from "lucide-react";
 import { RACES, EVENT, CITIES } from "@/data/marathon";
 import { z } from "zod";
 import { toast } from "sonner";
@@ -67,6 +67,7 @@ function RegisterPage() {
   const [participantId, setParticipantId] = useState<number | null>(null);
   const [paidBib, setPaidBib] = useState<string | null>(null); // null = not paid yet
   const [paying, setPaying] = useState(false);
+  const [payMethod, setPayMethod] = useState<"online" | "venue">("online");
 
   const race = useMemo(() => RACES.find((r) => r.id === raceId)!, [raceId]);
 
@@ -74,8 +75,15 @@ function RegisterPage() {
   useEffect(() => {
     fetch(`${API}/api/payment/config`, { cache: "no-store" })
       .then((r) => r.json())
-      .then((c: PayConfig) => setPayCfg(c))
-      .catch(() => setPayCfg({ enabled: false, keyId: "", currency: "INR" }));
+      .then((c: PayConfig) => {
+        setPayCfg(c);
+        // Default the method choice to whatever actually works right now.
+        setPayMethod(c.enabled ? "online" : "venue");
+      })
+      .catch(() => {
+        setPayCfg({ enabled: false, keyId: "", currency: "INR" });
+        setPayMethod("venue");
+      });
   }, []);
 
   function next() {
@@ -133,11 +141,15 @@ function RegisterPage() {
           .then((r) => r.json())
           .catch(() => ({ enabled: false, keyId: "", currency: "INR" }) as PayConfig));
       setPayCfg(cfg);
-      if (cfg.enabled && typeof id === "number") {
+      if (cfg.enabled && payMethod === "online" && typeof id === "number") {
         await startPayment(id); // sets done/paidBib itself
       } else {
         setDone(true);
-        toast.success("Registration confirmed! Your spot is reserved.");
+        if (payMethod === "online" && !cfg.enabled) {
+          toast.info("Online payment is activating soon — our team will confirm your payment on WhatsApp.");
+        } else {
+          toast.success("Registration confirmed! Your spot is reserved.");
+        }
       }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Something went wrong. Please try again.";
@@ -225,7 +237,7 @@ function RegisterPage() {
 
   if (done) {
     const paid = paidBib !== null;
-    const payable = !paid && participantId !== null && !!payCfg?.enabled;
+    const payable = !paid && participantId !== null && !!payCfg?.enabled && payMethod === "online";
     return (
       <section className="min-h-[70vh] grid place-items-center gradient-page px-4 py-16">
         <div className="max-w-lg text-center bg-white rounded-3xl p-10 shadow-elevated">
@@ -422,6 +434,57 @@ function RegisterPage() {
                 <Row label="Email · Phone" value={`${details.email} · ${details.phone}`} />
                 <Row label="Address" value={`${address.address}, ${address.city}, ${address.state} - ${address.pincode}`} />
                 <Row label="T-Shirt Size" value={size} />
+
+                {/* Payment method */}
+                <div>
+                  <p className="text-sm font-semibold text-charcoal">How would you like to pay?</p>
+                  <div className="mt-2 grid gap-3 md:grid-cols-2">
+                    <button
+                      type="button"
+                      onClick={() => setPayMethod("online")}
+                      className={`relative rounded-2xl border-2 p-4 text-left transition ${
+                        payMethod === "online"
+                          ? "border-navy bg-navy/[0.04] shadow-soft"
+                          : "border-border hover:border-navy/30"
+                      }`}
+                    >
+                      {payMethod === "online" && (
+                        <span className="absolute right-3 top-3 grid h-6 w-6 place-items-center rounded-full bg-navy text-white">
+                          <Check className="h-3.5 w-3.5" />
+                        </span>
+                      )}
+                      <CreditCard className={`h-6 w-6 ${payMethod === "online" ? "text-navy" : "text-muted-foreground"}`} />
+                      <p className="mt-2 font-bold text-charcoal">Pay Online Now</p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">UPI · Cards · Netbanking (Razorpay)</p>
+                      <p className="mt-1 text-xs font-semibold text-emerald">Instant confirmation & BIB</p>
+                      {payCfg && !payCfg.enabled && (
+                        <span className="mt-2 inline-block rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-700">
+                          Activating soon
+                        </span>
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPayMethod("venue")}
+                      className={`relative rounded-2xl border-2 p-4 text-left transition ${
+                        payMethod === "venue"
+                          ? "border-navy bg-navy/[0.04] shadow-soft"
+                          : "border-border hover:border-navy/30"
+                      }`}
+                    >
+                      {payMethod === "venue" && (
+                        <span className="absolute right-3 top-3 grid h-6 w-6 place-items-center rounded-full bg-navy text-white">
+                          <Check className="h-3.5 w-3.5" />
+                        </span>
+                      )}
+                      <Banknote className={`h-6 w-6 ${payMethod === "venue" ? "text-navy" : "text-muted-foreground"}`} />
+                      <p className="mt-2 font-bold text-charcoal">Pay at Venue</p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">Cash / UPI at the registration counter</p>
+                      <p className="mt-1 text-xs font-semibold text-muted-foreground">Confirmed by our team after payment</p>
+                    </button>
+                  </div>
+                </div>
+
                 <div className="rounded-2xl gradient-orange text-white p-5 flex items-center justify-between mt-6">
                   <div>
                     <p className="text-xs uppercase tracking-widest text-white/80">Total</p>
@@ -451,11 +514,7 @@ function RegisterPage() {
                 disabled={submitting}
                 className="inline-flex items-center gap-2 rounded-full bg-orange hover:bg-[#EA580C] text-white px-6 py-3 font-semibold shadow-soft hover:scale-105 transition disabled:opacity-60 disabled:cursor-not-allowed disabled:scale-100"
               >
-                {submitting
-                  ? "Submitting..."
-                  : payCfg && !payCfg.enabled
-                    ? "Register Now"
-                    : "Proceed to Payment"}
+                {submitting ? "Submitting..." : payMethod === "online" ? "Proceed to Payment" : "Register Now"}
               </button>
             )}
           </div>
