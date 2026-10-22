@@ -12,7 +12,7 @@ import twilio from "twilio";
 import fs from "fs";
 import http from "http";
 import { z } from "zod";
-import rateLimit from "express-rate-limit";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import mongoSanitize from "express-mongo-sanitize";
 import { syncParticipantToSalesforce, deleteParticipantFromSalesforce } from "./salesforce.js";
 import {
@@ -1377,6 +1377,9 @@ app.get("/api/health", (req, res) => {
     site: "Run Beyond Limits 2026",
     time: new Date().toISOString(),
     uptimeSec: Math.round(process.uptime()),
+    // Diagnostics: how the backend sees the client (tunnel = CF-Connecting-IP).
+    clientIp: req.ip,
+    visitorIp: req.get("cf-connecting-ip") || "",
     automation: automationEnabled() ? automationQueue.stats() : { status: "off" },
   });
 });
@@ -1905,6 +1908,13 @@ const registerLimiter = rateLimit({
   // allow a healthy group per IP while still stopping scripted abuse.
   // Tune with REGISTER_RATE_LIMIT in .env for event-day capacity.
   max: parseInt(process.env.REGISTER_RATE_LIMIT || "30", 10),
+  // Behind the local cloudflared tunnel every request arrives from localhost,
+  // so keying on req.ip would lump ALL public visitors into one bucket and
+  // block the whole site after 30 registrations. Cloudflare sets
+  // CF-Connecting-IP per visitor — use it (ipKeyGenerator groups IPv6
+  // addresses by /56 so one network can't rotate through addresses).
+  keyGenerator: (req) =>
+    ipKeyGenerator(req.get("cf-connecting-ip") || req.ip),
   message: { error: "Too many registrations from this IP, please try again later." }
 });
 
@@ -2028,7 +2038,11 @@ app.get("/api/admin/participants", authenticateAdmin, async (req, res) => {
 
 // Keep in sync with frontend/src/data/marathon.ts (RACES[].fee).
 const RACE_FEES_INR = { "21k": 999, "10k": 799, "5k": 499 };
-const paymentLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 30 });
+const paymentLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  keyGenerator: (req) => ipKeyGenerator(req.get("cf-connecting-ip") || req.ip), // per-visitor behind the tunnel
+});
 
 function razorpayConfig() {
   const keyId = String(process.env.RAZORPAY_KEY_ID || "").trim();

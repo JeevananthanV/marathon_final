@@ -148,7 +148,13 @@ function killNodeByPattern(psPattern) {
 }
 
 function git(...args) {
-  return execSync(`git ${args.join(" ")}`, {
+  // Quote any arg containing spaces (e.g. commit messages with a URL),
+  // otherwise cmd.exe splits it and git chokes on stray pathspecs ("ERROR 123:
+  // The filename, directory name, or volume label syntax is incorrect").
+  const quoted = args
+    .map((a) => (/[\s]/.test(a) ? `"${a.replace(/"/g, '\\"')}"` : a))
+    .join(" ");
+  return execSync(`git ${quoted}`, {
     cwd: PAGES_DIR,
     encoding: "utf8",
     timeout: 60_000,
@@ -192,11 +198,15 @@ async function ensureFrontend() {
   }
   state.frontendDownStreak += 1;
   if (state.frontendDownStreak < 2) return;
-  log(`frontend DOWN — restarting vite dev server`);
-  killNodeByPattern("vite.*(5173|dev)|--port\\s+5173");
+  log(`frontend DOWN — restarting wrangler (production build server)`);
+  killNodeByPattern("vite.*(5173|dev|preview)|wrangler.*5173|workerd|edge-runtime|--port\\s+5173");
   await new Promise((r) => setTimeout(r, 1000));
+  // Serves the BUILT app via wrangler (nitro's cloudflare preset): measured
+  // 500 simultaneous visitors with 0 errors (the dev server returned 502s).
+  // NOTE: after editing frontend code run `npm run build` (frontend) first,
+  // otherwise the server keeps serving the last build.
   spawnNpm(
-    ["run", "dev", "--", "--port", "5173"],
+    ["run", "serve"],
     FRONTEND_DIR,
     path.join(STATE_DIR, "frontend.log")
   );
@@ -336,26 +346,33 @@ async function syncConfig() {
   }
   try {
     const current = JSON.parse(fs.readFileSync(CONFIG_PATH, "utf8"));
-    if (current.backend === state.tunnelUrl) {
-      state.lastConfigSync = state.tunnelUrl;
-      return;
+    // Write when the file mismatches; ALWAYS continue to add/commit/push when
+    // this URL hasn't been confirmed pushed yet (local file can already match
+    // while GitHub Pages still serves the previous tunnel — that state hung the
+    // permanent hub before).
+    if (current.backend !== state.tunnelUrl) {
+      fs.writeFileSync(
+        CONFIG_PATH,
+        JSON.stringify({
+          backend: state.tunnelUrl,
+          updatedAt: new Date().toISOString(),
+          note: "auto-managed by tunnel watcher - do not edit manually",
+        })
+      );
     }
-    const next = {
-      backend: state.tunnelUrl,
-      updatedAt: new Date().toISOString(),
-      note: "auto-managed by tunnel watcher - do not edit manually",
-    };
-    fs.writeFileSync(CONFIG_PATH, JSON.stringify(next));
     git("add", "config.json");
-    git(
-      "-c",
-      "user.name=Gokulraj-2006-code",
-      "-c",
-      "user.email=Gokulraj-2006-code@users.noreply.github.com",
-      "commit",
-      "-m",
-      `config: tunnel -> ${state.tunnelUrl}`
-    );
+    const pending = git("status", "--porcelain", "config.json").trim();
+    if (pending) {
+      git(
+        "-c",
+        "user.name=Gokulraj-2006-code",
+        "-c",
+        "user.email=Gokulraj-2006-code@users.noreply.github.com",
+        "commit",
+        "-m",
+        `config: tunnel -> ${state.tunnelUrl}`
+      );
+    }
     git("push", "origin", "gh-pages");
     state.lastConfigSync = state.tunnelUrl;
     log(`permanent hub updated -> ${state.tunnelUrl}`);
