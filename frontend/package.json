@@ -8,7 +8,7 @@
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
-    "serve": "wrangler dev --port 5173",
+    "serve": "wrangler dev --port 5273",
     "lint": "eslint .",
     "format": "prettier --write ."
   },

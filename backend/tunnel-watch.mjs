@@ -3,7 +3,7 @@
  *
  * Keeps alive:
  *   1. backend  (localhost:5000)  — API, /verify, /scan
- *   2. frontend (localhost:5173)  — the website (TanStack Start)
+ *   2. frontend (localhost:5273)  — the website (TanStack Start)
  *   3. cloudflared quick tunnel   — public HTTPS address
  * And whenever the tunnel URL changes it updates config.json on the
  * gh-pages branch (GitHub Pages permanent hub) so QR codes never break:
@@ -38,7 +38,7 @@ const CLOUDFLARED = path.join(
 
 const TICK_MS = Number(process.env.WATCH_TICK_MS || 60_000);
 const BACKEND_HEALTH = "http://localhost:5000/api/health";
-const FRONTEND_URL = "http://localhost:5173";
+const FRONTEND_URL = "http://localhost:5273";
 
 fs.mkdirSync(STATE_DIR, { recursive: true });
 
@@ -199,7 +199,9 @@ async function ensureFrontend() {
   state.frontendDownStreak += 1;
   if (state.frontendDownStreak < 2) return;
   log(`frontend DOWN — restarting wrangler (production build server)`);
-  killNodeByPattern("vite.*(5173|dev|preview)|wrangler.*5173|workerd|edge-runtime|--port\\s+5173");
+  // Scoped to OUR port (5273) so the watchdog never kills another project's
+  // dev server. (5173 is Vite's default — other projects squat it; we moved off.)
+  killNodeByPattern("vite.*5273|wrangler.*5273|workerd.*5273|edge-runtime");
   await new Promise((r) => setTimeout(r, 1000));
   // Serves the BUILT app via wrangler (nitro's cloudflare preset): measured
   // 500 simultaneous visitors with 0 errors (the dev server returned 502s).

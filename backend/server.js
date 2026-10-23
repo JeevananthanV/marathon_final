@@ -2637,10 +2637,10 @@ app.post("/api/admin/zoho/sync-all", authenticateAdmin, async (req, res) => {
 
 /* ------------------------------------------------------------------ */
 /* Public website: forward page requests to the frontend server        */
-/* (TanStack Start on :5173). /api, /verify and /scan stay native.     */
+/* (TanStack Start on :5273). /api, /verify and /scan stay native.     */
 /* ------------------------------------------------------------------ */
 
-const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173";
+const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5273";
 
 function proxyToFrontend(req, res) {
   let target;
