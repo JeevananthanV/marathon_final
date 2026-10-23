@@ -40,7 +40,7 @@ export default function RaceCategories() {
           className="text-center max-w-2xl mx-auto mb-8 md:mb-16"
         >
           <p className="text-navy font-semibold text-xs tracking-widest uppercase">Race Categories</p>
-          <h2 className="mt-2 text-2xl md:text-6xl font-extrabold text-charcoal tracking-tight overflow-hidden">
+          <h2 className="mt-2 text-2xl md:text-5xl font-extrabold text-charcoal tracking-tight overflow-hidden">
             <WordReveal text="Choose Your Challenge" delay={0.1} stagger={0.12} />
           </h2>
           <div className="mt-3 h-1 w-16 mx-auto rounded-full bg-navy" />
