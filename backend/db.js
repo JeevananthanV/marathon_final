@@ -71,8 +71,34 @@ async function init() {
   const { PGlite } = await import("@electric-sql/pglite");
   if (!fs.existsSync(PGLITE_DIR)) fs.mkdirSync(PGLITE_DIR, { recursive: true });
 
-  const pg = new PGlite(PGLITE_DIR);
-  await pg.waitReady;
+  const pidFile = `${PGLITE_DIR}/postmaster.pid`;
+  if (fs.existsSync(pidFile)) {
+    try {
+      fs.unlinkSync(pidFile);
+      console.log("[db] Removed stale postmaster.pid lock file");
+    } catch (_) {}
+  }
+
+  let pg;
+  try {
+    pg = new PGlite(PGLITE_DIR);
+    await pg.waitReady;
+  } catch (err) {
+    console.warn(`[db] PGlite failed to load from ${PGLITE_DIR}. Attempting recovery...`);
+    try {
+      const backupDir = `${PGLITE_DIR}_corrupted_${Date.now()}`;
+      if (fs.existsSync(PGLITE_DIR)) {
+        fs.renameSync(PGLITE_DIR, backupDir);
+      }
+      pg = new PGlite(PGLITE_DIR);
+      await pg.waitReady;
+      console.log(`[db] PGlite successfully re-initialized fresh data directory: ${PGLITE_DIR}`);
+    } catch (fallbackErr) {
+      console.warn(`[db] Disk PGlite failed (${fallbackErr.message}). Falling back to memory database.`);
+      pg = new PGlite();
+      await pg.waitReady;
+    }
+  }
 
   backend = {
     name: "pglite",

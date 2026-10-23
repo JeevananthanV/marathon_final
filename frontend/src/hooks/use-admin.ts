@@ -134,6 +134,31 @@ export function useAdmin() {
     toast.success(`Entry QR sent to ${d.phone}`);
   }, [token]);
 
+  const toggleKitStatus = useCallback(async (id: string, currentStatus: string = "No") => {
+    const newStatus = currentStatus === "Yes" ? "No" : "Yes";
+    const res = await fetch(`${API_BASE}/participants/${id}/kit-distribution`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ kitCollected: newStatus }),
+    });
+    if (!res.ok) throw new Error("Failed to update kit distribution status");
+    setParticipants((prev) =>
+      prev.map((p) => (p._id === id ? { ...p, kitCollected: newStatus } : p))
+    );
+    toast.success(newStatus === "Yes" ? "Kit & T-Shirt marked as Collected!" : "Kit status set to Pending");
+  }, [token]);
+
+  const downloadTicket = useCallback((id: string, bib: string = "", name: string = "") => {
+    const url = `/api/v1/marathon/ticket-pdf/${id}`;
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `Ticket-${bib || id}-${name.replace(/\s+/g, "_")}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    toast.success("Downloading official ticket PDF...");
+  }, []);
+
   const updateParticipant = useCallback(async (id: string, data: Partial<Participant>) => {
     const res = await fetch(`${API_BASE}/participants/${id}`, {
       method: "PUT",
@@ -279,6 +304,8 @@ export function useAdmin() {
     deleteParticipant,
     sendCertificateEmail,
     resendEntryQr,
+    toggleKitStatus,
+    downloadTicket,
     updateParticipant,
     fetchData,
   };

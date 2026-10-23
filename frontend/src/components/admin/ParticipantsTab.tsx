@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/table";
 import {
   Download, Filter, Search, Eye, EyeOff, Edit3, Check, X, Send, Trash2,
-  ChevronLeft, ChevronRight, MoreVertical, QrCode,
+  ChevronLeft, ChevronRight, MoreVertical, QrCode, Package, CheckCircle2, ExternalLink, FileText,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
@@ -32,6 +32,8 @@ interface ParticipantsTabProps {
   onEdit: (p: Participant) => void;
   onDelete: (id: string) => void;
   onTogglePayment: (id: string, status: "Paid" | "Pending") => void;
+  onToggleKit?: (id: string, currentStatus?: string) => void;
+  onDownloadTicket?: (id: string, bib?: string, name?: string) => void;
   onSendCertificate: (id: string) => void;
   onResendQr: (id: string) => void;
 }
@@ -39,6 +41,7 @@ interface ParticipantsTabProps {
 const ROWS_PER_PAGE = 12;
 
 export function ParticipantsTab({
+  participants,
   filteredParticipants,
   cityFilter,
   setCityFilter,
@@ -51,14 +54,23 @@ export function ParticipantsTab({
   onEdit,
   onDelete,
   onTogglePayment,
+  onToggleKit,
+  onDownloadTicket,
   onSendCertificate,
   onResendQr,
 }: ParticipantsTabProps) {
+  const [kitFilter, setKitFilter] = useState<string>("__all__");
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
   const [page, setPage] = useState(0);
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: "asc" | "desc" } | null>(null);
 
-  const sortedParticipants = [...filteredParticipants].sort((a, b) => {
+  const kitFiltered = filteredParticipants.filter((p) => {
+    if (kitFilter === "collected") return p.kitCollected === "Yes";
+    if (kitFilter === "pending") return p.kitCollected !== "Yes";
+    return true;
+  });
+
+  const sortedParticipants = [...kitFiltered].sort((a, b) => {
     if (!sortConfig) return 0;
     const { key, direction } = sortConfig;
     const aValue = (a as any)[key] || "";
@@ -75,10 +87,12 @@ export function ParticipantsTab({
   );
 
   function exportCSV() {
-    const headers = ["Full Name", "DOB", "Gender", "Phone", "Email", "City", "Race", "T-Shirt", "Payment", "BIB", "Date"];
-    const rows = filteredParticipants.map((p) => [
+    const headers = ["Full Name", "DOB", "Gender", "Phone", "Email", "City", "Race", "T-Shirt", "Payment", "BIB", "Kit Status", "Gate Check-In", "Date"];
+    const rows = kitFiltered.map((p) => [
       p.fullName, p.dob, p.gender, p.phone, p.email, p.city,
       p.raceId.toUpperCase(), p.size, p.paymentStatus, p.bibNumber || "N/A",
+      p.kitCollected === "Yes" ? "Collected" : "Pending",
+      p.attendeeCheckedIn === "Yes" ? "Checked-In" : "No",
       new Date(p.registrationDate).toLocaleDateString(),
     ]);
     const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
@@ -89,10 +103,13 @@ export function ParticipantsTab({
   }
 
   function exportExcel() {
-    const headers = ["Full Name", "DOB", "Gender", "Phone", "Email", "Address", "City", "State", "Pincode", "Race", "T-Shirt", "Payment", "BIB", "Emergency Contact", "Date"];
-    const rows = filteredParticipants.map((p) => [
+    const headers = ["Full Name", "DOB", "Gender", "Phone", "Email", "Address", "City", "State", "Pincode", "Race", "T-Shirt", "Payment", "BIB", "Kit Status", "Gate Check-In", "Emergency Contact", "Date"];
+    const rows = kitFiltered.map((p) => [
       p.fullName, p.dob, p.gender, p.phone, p.email, p.address, p.city, p.state, p.pincode,
-      p.raceId.toUpperCase(), p.size, p.paymentStatus, p.bibNumber || "N/A", p.emergencyContact,
+      p.raceId.toUpperCase(), p.size, p.paymentStatus, p.bibNumber || "N/A",
+      p.kitCollected === "Yes" ? "Collected" : "Pending",
+      p.attendeeCheckedIn === "Yes" ? "Checked-In" : "No",
+      p.emergencyContact,
       new Date(p.registrationDate).toLocaleDateString(),
     ]);
     const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
@@ -169,9 +186,25 @@ export function ParticipantsTab({
                   <SelectItem value="Pending">Pending</SelectItem>
                 </SelectContent>
               </Select>
+              <Select value={kitFilter} onValueChange={(v) => { setKitFilter(v); setPage(0); }}>
+                <SelectTrigger
+                  className="h-8 w-[100px] md:w-[130px] text-xs md:text-sm rounded-xl border border-border text-foreground shadow-sm"
+                  style={{ background: "var(--color-card)" }}
+                >
+                  <SelectValue placeholder="All Kits" />
+                </SelectTrigger>
+                <SelectContent
+                  className="border shadow-xl rounded-xl z-[9999]"
+                  style={{ backgroundColor: "var(--popover)", color: "var(--popover-foreground)", borderColor: "var(--border)" }}
+                >
+                  <SelectItem value="__all__">All Kits</SelectItem>
+                  <SelectItem value="collected">Kit Collected</SelectItem>
+                  <SelectItem value="pending">Kit Pending</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="flex items-center gap-2">
-              <div className="relative flex-1 md:w-72">
+              <div className="relative flex-1 md:w-64">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/60" />
               <Input
                   placeholder="Search name, email, phone, BIB..."
@@ -181,6 +214,11 @@ export function ParticipantsTab({
                   style={{ background: "var(--color-card)" }}
                 />
               </div>
+              <a href="/scan" target="_blank" rel="noopener noreferrer">
+                <Button size="sm" variant="outline" className="h-8 md:h-9 rounded-xl text-xs md:text-sm font-semibold border-purple-500/30 text-purple-600 dark:text-purple-400 hover:bg-purple-500/10">
+                  <QrCode className="h-3.5 w-3.5 mr-1" /> Scan Station
+                </Button>
+              </a>
               <Button size="sm" variant="outline" className="h-8 md:h-9 rounded-xl text-xs md:text-sm font-semibold text-success border-success/30 hover:bg-success/10" onClick={exportCSV}>
                 <Download className="h-3.5 w-3.5 mr-1" /> CSV
               </Button>
@@ -210,13 +248,14 @@ export function ParticipantsTab({
                 <TableHead className="text-center">T-Shirt</TableHead>
                 <TableHead>BIB</TableHead>
                 <TableHead className="text-center">Payment</TableHead>
+                <TableHead className="text-center">Kit & T-Shirt</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {paginatedParticipants.map((p) => (
+                <React.Fragment key={p._id}>
                 <tr
-                  key={p._id}
                   className="group border-b border-border/30 dark:border-white/5"
                 >
                   <TableCell className="pl-3">
@@ -292,9 +331,42 @@ export function ParticipantsTab({
                       {p.paymentStatus}
                     </Badge>
                   </TableCell>
+                  <TableCell className="text-center">
+                    <div className="flex flex-col items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className={cn(
+                          "h-7 px-2 text-xs font-semibold rounded-lg border transition-all",
+                          p.kitCollected === "Yes"
+                            ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/25"
+                            : "bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30 hover:bg-amber-500/25"
+                        )}
+                        onClick={() => onToggleKit?.(p._id, p.kitCollected)}
+                        title="Click to toggle Kit handover"
+                      >
+                        <Package className="h-3.5 w-3.5 mr-1" />
+                        {p.kitCollected === "Yes" ? "Kit Handed" : "Kit Pending"}
+                      </Button>
+                      {p.attendeeCheckedIn === "Yes" && (
+                        <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-0.5">
+                          <CheckCircle2 className="h-3 w-3" /> Gate Scanned
+                        </span>
+                      )}
+                    </div>
+                  </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-0.5">
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-lg text-primary hover:bg-primary/10" onClick={() => onEdit(p)}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0 rounded-lg text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10"
+                        onClick={() => onDownloadTicket?.(p._id, p.bibNumber, p.fullName)}
+                        title="Download Official Ticket (PDF with QR)"
+                      >
+                        <Download className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-lg text-primary hover:bg-primary/10" onClick={() => onEdit(p)} title="Edit Runner">
                         <Edit3 className="h-4 w-4" />
                       </Button>
                       <Button
@@ -312,23 +384,94 @@ export function ParticipantsTab({
                         {p.paymentStatus === "Paid" ? <X className="h-4 w-4" /> : <Check className="h-4 w-4" />}
                       </Button>
                       {p.paymentStatus === "Paid" && (
-                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-lg text-accent hover:bg-accent/10" onClick={() => onSendCertificate(p._id)}>
+                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-lg text-accent hover:bg-accent/10" onClick={() => onSendCertificate(p._id)} title="Send Certificate Email">
                           <Send className="h-4 w-4" />
                         </Button>
                       )}
                       <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-lg text-primary hover:bg-primary/10" onClick={() => onResendQr(p._id)} title="Resend Entry QR">
                         <QrCode className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-lg text-destructive hover:bg-destructive/10" onClick={() => onDelete(p._id)}>
+                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-lg text-destructive hover:bg-destructive/10" onClick={() => onDelete(p._id)} title="Delete Participant">
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
                   </TableCell>
                 </tr>
+                {expandedRow === p._id && (
+                  <tr key={`${p._id}-expanded`} className="bg-muted/30 dark:bg-white/[0.02] border-b border-border/30">
+                    <td colSpan={9} className="p-4">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs bg-card p-4 rounded-xl border border-border/40 shadow-sm">
+                        <div className="space-y-1.5">
+                          <p className="font-bold text-foreground text-sm flex items-center gap-1.5">
+                            <Package className="h-4 w-4 text-primary" /> Kit & T-Shirt Status
+                          </p>
+                          <p className="text-muted-foreground">
+                            T-Shirt Size: <span className="font-bold text-foreground">{p.size} (Dry-Fit)</span>
+                          </p>
+                          <p className="text-muted-foreground">
+                            Kit Collection: <span className={cn("font-bold", p.kitCollected === "Yes" ? "text-emerald-500" : "text-amber-500")}>
+                              {p.kitCollected === "Yes" ? `Collected (${p.kitCollectedAt || "Logged"})` : "Pending Pickup"}
+                            </span>
+                          </p>
+                          <p className="text-muted-foreground">
+                            Race Day Check-in: <span className={cn("font-bold", p.attendeeCheckedIn === "Yes" ? "text-emerald-500" : "text-muted-foreground")}>
+                              {p.attendeeCheckedIn === "Yes" ? `Checked In (${p.checkedInAt || "Logged"})` : "Not checked in yet"}
+                            </span>
+                          </p>
+                        </div>
+                        <div className="space-y-1.5">
+                          <p className="font-bold text-foreground text-sm flex items-center gap-1.5">
+                            <QrCode className="h-4 w-4 text-purple-500" /> Pass Verification Code
+                          </p>
+                          <p className="font-mono text-sm font-black text-primary">
+                            {p.verifyCode || p._id}
+                          </p>
+                          <p className="text-muted-foreground">
+                            Emergency Contact: <span className="font-semibold text-foreground">{p.emergencyContact || "N/A"}</span>
+                          </p>
+                          <p className="text-muted-foreground truncate">
+                            Address: <span className="text-foreground">{p.address || "N/A"}, {p.city || p.cityId}</span>
+                          </p>
+                        </div>
+                        <div className="flex flex-col justify-center gap-2">
+                          <Button
+                            size="sm"
+                            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl text-xs h-9"
+                            onClick={() => onDownloadTicket?.(p._id, p.bibNumber, p.fullName)}
+                          >
+                            <Download className="h-3.5 w-3.5 mr-1.5" /> Download Official Ticket (PDF)
+                          </Button>
+                          <div className="flex gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="flex-1 rounded-xl text-xs h-8"
+                              onClick={() => onToggleKit?.(p._id, p.kitCollected)}
+                            >
+                              <Package className="h-3.5 w-3.5 mr-1 text-primary" />
+                              {p.kitCollected === "Yes" ? "Mark Kit Pending" : "Mark Kit Handed Over"}
+                            </Button>
+                            <a
+                              href={`/verify?code=${p.verifyCode || p._id}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex"
+                            >
+                              <Button variant="outline" size="sm" className="rounded-xl text-xs h-8" title="Open Verification Booth">
+                                <ExternalLink className="h-3.5 w-3.5" />
+                              </Button>
+                            </a>
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+                </React.Fragment>
               ))}
               {paginatedParticipants.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-16">
+                  <TableCell colSpan={9} className="text-center py-16">
                     <div className="flex flex-col items-center gap-3">
                       <div className="h-16 w-16 rounded-2xl bg-muted grid place-items-center">
                         <Search className="h-7 w-7 text-muted-foreground/40" />
@@ -379,26 +522,29 @@ export function ParticipantsTab({
                 </div>
                 <div>
                   <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground/70">T-Shirt</span>
-                  <p className="font-semibold text-foreground mt-0.5">{p.size}</p>
+                  <p className="font-semibold text-foreground mt-0.5">{p.size} (Dry-Fit)</p>
                 </div>
                 <div>
                   <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground/70">BIB</span>
                   <p className="font-mono font-bold text-foreground mt-0.5">{p.bibNumber || "—"}</p>
                 </div>
                 <div>
-                  <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground/70">Payment</span>
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground/70">Kit Status</span>
                   <div className="mt-0.5">
-                    <Badge
-                      variant="outline"
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       className={cn(
-                        "text-[10px] font-semibold px-2 py-0.5 rounded-full border",
-                        p.paymentStatus === "Paid"
-                          ? "bg-success/20 text-success-light border-success/30"
-                          : "bg-warning/20 text-warning-light border-warning/30"
+                        "h-6 px-2 text-[10px] font-bold rounded-md border",
+                        p.kitCollected === "Yes"
+                          ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30"
+                          : "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30"
                       )}
+                      onClick={() => onToggleKit?.(p._id, p.kitCollected)}
                     >
-                      {p.paymentStatus}
-                    </Badge>
+                      <Package className="h-3 w-3 mr-1" />
+                      {p.kitCollected === "Yes" ? "Handed" : "Pending"}
+                    </Button>
                   </div>
                 </div>
               </div>
@@ -406,11 +552,23 @@ export function ParticipantsTab({
               <div className="text-xs space-y-1 px-1">
                 <p className="text-foreground/80 truncate"><span className="text-muted-foreground font-medium">Email: </span>{p.email}</p>
                 <p className="text-foreground/80"><span className="text-muted-foreground font-medium">Phone: </span>{p.phone}</p>
+                {p.attendeeCheckedIn === "Yes" && (
+                  <p className="text-emerald-500 font-semibold flex items-center gap-1">
+                    <CheckCircle2 className="h-3 w-3" /> Gate Checked-in
+                  </p>
+                )}
               </div>
 
-              <div className="flex items-center justify-between pt-2 border-t border-border/20 dark:border-white/5">
-                <span className="text-[10px] uppercase font-bold text-muted-foreground/50">Actions</span>
-                <div className="flex items-center gap-1.5">
+              <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-border/20 dark:border-white/5">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 px-2.5 rounded-lg text-xs font-semibold text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10"
+                  onClick={() => onDownloadTicket?.(p._id, p.bibNumber, p.fullName)}
+                >
+                  <Download className="h-3.5 w-3.5 mr-1" /> Ticket PDF
+                </Button>
+                <div className="flex items-center gap-1.5 ml-auto">
                   <Button variant="outline" size="sm" className="h-8 px-2.5 rounded-lg text-xs font-semibold text-primary" onClick={() => onEdit(p)}>
                     <Edit3 className="h-3.5 w-3.5 mr-1" /> Edit
                   </Button>

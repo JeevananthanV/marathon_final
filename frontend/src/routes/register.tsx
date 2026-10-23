@@ -1,6 +1,6 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { Check, ChevronLeft, ChevronRight, CircleCheck, Clock, CreditCard, Banknote, MapPin } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, CircleCheck, Clock, CreditCard, Banknote, MapPin, ShieldCheck } from "lucide-react";
 import { RACES, EVENT, CITIES } from "@/data/marathon";
 import { z } from "zod";
 import { toast } from "sonner";
@@ -24,6 +24,18 @@ const API =
 
 type PayConfig = { enabled: boolean; keyId: string; currency: string };
 
+function calculateAge(dobString: string): number {
+  if (!dobString) return 0;
+  const today = new Date();
+  const birthDate = new Date(dobString);
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const m = today.getMonth() - birthDate.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+    age--;
+  }
+  return age;
+}
+
 function loadRazorpayScript(): Promise<void> {
   return new Promise((resolve, reject) => {
     const w = window as unknown as { Razorpay?: unknown };
@@ -44,7 +56,11 @@ const detailsSchema = z.object({
   gender: z.enum(["Male", "Female", "Other"], { message: "Select gender" }),
   phone: z.string().trim().min(7, "Enter a valid phone").max(20),
   email: z.string().trim().email("Invalid email").max(255),
-  emergencyContact: z.string().trim().min(7, "Enter emergency contact").max(20),
+  emergencyContact: z.string().trim().min(7, "Enter emergency contact phone").max(20),
+  emergencyContactName: z.string().trim().min(2, "Enter emergency contact name").max(100),
+  medicalDeclaration: z.boolean().refine((val) => val === true, {
+    message: "You must confirm that you are medically fit to participate",
+  }),
 });
 const addressSchema = z.object({
   address: z.string().trim().min(5, "Address is too short").max(200),
@@ -54,10 +70,20 @@ const addressSchema = z.object({
 });
 
 function RegisterPage() {
+  const navigate = useNavigate();
   const [step, setStep] = useState(0);
   const [cityId, setCityId] = useState<string>("chennai");
   const [raceId, setRaceId] = useState<string>("10k");
-  const [details, setDetails] = useState({ fullName: "", dob: "", gender: "", phone: "", email: "", emergencyContact: "" });
+  const [details, setDetails] = useState({
+    fullName: "",
+    dob: "",
+    gender: "",
+    phone: "",
+    email: "",
+    emergencyContact: "",
+    emergencyContactName: "",
+    medicalDeclaration: false,
+  });
   const [address, setAddress] = useState({ address: "", city: "", state: "", pincode: "" });
   const [size, setSize] = useState<string>("M");
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -95,6 +121,15 @@ function RegisterPage() {
         setErrors(e);
         return;
       }
+      // Age controls per category
+      const age = calculateAge(details.dob);
+      const minAge = raceId === "21k" ? 18 : raceId === "10k" ? 16 : 12;
+      if (age < minAge) {
+        setErrors({
+          dob: `Age requirement: Minimum age for ${race.distance} KM is ${minAge} years (calculated age: ${age}).`,
+        });
+        return;
+      }
     }
     if (step === 3) {
       const p = addressSchema.safeParse(address);
@@ -121,7 +156,25 @@ function RegisterPage() {
         cityId,
         raceId,
         size,
+        runnerName: details.fullName,
+        runnerEmail: details.email,
+        runnerPhone: details.phone,
+        tshirtSize: size,
+        categoryId: raceId,
+        emergencyContactName: details.emergencyContactName,
+        medicalDeclaration: details.medicalDeclaration ? "Health cleared & fit to run" : "None",
       };
+
+      // Store in session storage so /checkout-summary has immediate access
+      sessionStorage.setItem("marathon_registration_pending", JSON.stringify(payload));
+
+      if (payMethod === "online") {
+        // Navigate to the Pre-Payment Gateway & Order Summary view
+        navigate({ to: "/checkout-summary" });
+        return;
+      }
+
+      // If venue payment chosen, save to DB directly:
       const res = await fetch(`${API}/api/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -134,23 +187,8 @@ function RegisterPage() {
       const id: number | undefined = data?.participant?._id;
       if (typeof id === "number") setParticipantId(id);
 
-      // Online payment configured? -> open Razorpay checkout right away.
-      const cfg =
-        payCfg ??
-        (await fetch(`${API}/api/payment/config`, { cache: "no-store" })
-          .then((r) => r.json())
-          .catch(() => ({ enabled: false, keyId: "", currency: "INR" }) as PayConfig));
-      setPayCfg(cfg);
-      if (cfg.enabled && payMethod === "online" && typeof id === "number") {
-        await startPayment(id); // sets done/paidBib itself
-      } else {
-        setDone(true);
-        if (payMethod === "online" && !cfg.enabled) {
-          toast.info("Online payment is activating soon — our team will confirm your payment on WhatsApp.");
-        } else {
-          toast.success("Registration confirmed! Your spot is reserved.");
-        }
-      }
+      setDone(true);
+      toast.success("Registration confirmed! Your spot is reserved for venue payment.");
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Something went wrong. Please try again.";
       toast.error(message);
@@ -385,7 +423,25 @@ function RegisterPage() {
                 <Select label="Gender" value={details.gender} error={errors.gender} onChange={(v) => setDetails({ ...details, gender: v })} options={["Male", "Female", "Other"]} />
                 <Input label="Phone" type="tel" value={details.phone} error={errors.phone} onChange={(v) => setDetails({ ...details, phone: v })} />
                 <Input label="Email" type="email" value={details.email} error={errors.email} onChange={(v) => setDetails({ ...details, email: v })} />
-                <Input label="Emergency Contact" type="tel" value={details.emergencyContact} error={errors.emergencyContact} onChange={(v) => setDetails({ ...details, emergencyContact: v })} />
+                <Input label="Emergency Contact Name" value={details.emergencyContactName} error={errors.emergencyContactName} onChange={(v) => setDetails({ ...details, emergencyContactName: v })} placeholder="e.g. Jane Doe (Spouse/Relative)" />
+                <Input label="Emergency Contact Phone" type="tel" value={details.emergencyContact} error={errors.emergencyContact} onChange={(v) => setDetails({ ...details, emergencyContact: v })} placeholder="Primary contact number" />
+                <div className="md:col-span-2 pt-2">
+                  <label className="flex items-start gap-3 p-3.5 rounded-xl border border-slate-200 bg-slate-50 cursor-pointer hover:bg-slate-100/70 transition">
+                    <input
+                      type="checkbox"
+                      checked={details.medicalDeclaration}
+                      onChange={(e) => setDetails({ ...details, medicalDeclaration: e.target.checked })}
+                      className="mt-1 h-4 w-4 rounded text-[#e9387c] focus:ring-[#e9387c] border-slate-300"
+                    />
+                    <div className="text-xs text-slate-600">
+                      <span className="font-bold text-charcoal block">Medical Disclosure & Fitness Clearance</span>
+                      I confirm that I am medically fit, physically trained, and have no known health conditions that would prevent me from completing the {race.distance} KM {race.type} safely.
+                    </div>
+                  </label>
+                  {errors.medicalDeclaration && (
+                    <p className="mt-1.5 text-xs text-rose-500 font-semibold">{errors.medicalDeclaration}</p>
+                  )}
+                </div>
               </div>
             </div>
           )}

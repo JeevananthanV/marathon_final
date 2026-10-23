@@ -50,6 +50,8 @@ function AdminPage() {
     deleteParticipant,
     sendCertificateEmail,
     resendEntryQr,
+    toggleKitStatus,
+    downloadTicket,
     updateParticipant,
   } = useAdmin();
 
@@ -93,12 +95,14 @@ function AdminPage() {
           onEdit={setEditingParticipant}
           onDelete={setDeletingId}
           onTogglePayment={togglePaymentStatus}
+          onToggleKit={toggleKitStatus}
+          onDownloadTicket={downloadTicket}
           onSendCertificate={sendCertificateEmail}
           onResendQr={resendEntryQr}
         />
       )}
 
-      {tab === "tshirt" && <TShirtTab tshirtData={tshirtData} />}
+      {tab === "tshirt" && <TShirtTab tshirtData={tshirtData} participants={participants} />}
 
       {tab === "reports" && (
         <ReportsTab

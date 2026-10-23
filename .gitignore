@@ -53,6 +53,8 @@ coverage/
 # bun.lock
 
 # Local database files - NEVER commit these
+pglite-data/
+*pglite-data*
 backend/pglite-data/
 backend/marathon.db
 backend/.env

@@ -13,11 +13,20 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as CertificatesRouteImport } from './routes/certificates'
+import { Route as CheckoutSummaryRouteImport } from './routes/checkout-summary'
 import { Route as ContactRouteImport } from './routes/contact'
+import { Route as ContactUsRouteImport } from './routes/contact-us'
+import { Route as EventRouteImport } from './routes/event'
 import { Route as EventInfoRouteImport } from './routes/event-info'
 import { Route as GalleryRouteImport } from './routes/gallery'
+import { Route as PrivacyPolicyRouteImport } from './routes/privacy-policy'
+import { Route as RefundPolicyRouteImport } from './routes/refund-policy'
 import { Route as RegisterRouteImport } from './routes/register'
+import { Route as ShippingPolicyRouteImport } from './routes/shipping-policy'
+import { Route as TermsAndConditionsRouteImport } from './routes/terms-and-conditions'
 import { Route as ThemePreviewRouteImport } from './routes/theme-preview'
+import { Route as StatusFailureRouteImport } from './routes/status.failure'
+import { Route as StatusSuccessRouteImport } from './routes/status.success'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -39,9 +48,24 @@ const CertificatesRoute = CertificatesRouteImport.update({
   path: '/certificates',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CheckoutSummaryRoute = CheckoutSummaryRouteImport.update({
+  id: '/checkout-summary',
+  path: '/checkout-summary',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ContactRoute = ContactRouteImport.update({
   id: '/contact',
   path: '/contact',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ContactUsRoute = ContactUsRouteImport.update({
+  id: '/contact-us',
+  path: '/contact-us',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EventRoute = EventRouteImport.update({
+  id: '/event',
+  path: '/event',
   getParentRoute: () => rootRouteImport,
 } as any)
 const EventInfoRoute = EventInfoRouteImport.update({
@@ -54,14 +78,44 @@ const GalleryRoute = GalleryRouteImport.update({
   path: '/gallery',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PrivacyPolicyRoute = PrivacyPolicyRouteImport.update({
+  id: '/privacy-policy',
+  path: '/privacy-policy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RefundPolicyRoute = RefundPolicyRouteImport.update({
+  id: '/refund-policy',
+  path: '/refund-policy',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const RegisterRoute = RegisterRouteImport.update({
   id: '/register',
   path: '/register',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ShippingPolicyRoute = ShippingPolicyRouteImport.update({
+  id: '/shipping-policy',
+  path: '/shipping-policy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TermsAndConditionsRoute = TermsAndConditionsRouteImport.update({
+  id: '/terms-and-conditions',
+  path: '/terms-and-conditions',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ThemePreviewRoute = ThemePreviewRouteImport.update({
   id: '/theme-preview',
   path: '/theme-preview',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StatusFailureRoute = StatusFailureRouteImport.update({
+  id: '/status/failure',
+  path: '/status/failure',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StatusSuccessRoute = StatusSuccessRouteImport.update({
+  id: '/status/success',
+  path: '/status/success',
   getParentRoute: () => rootRouteImport,
 } as any)
 
@@ -70,22 +124,40 @@ export interface FileRoutesByFullPath {
   '/about': typeof AboutRoute
   '/admin': typeof AdminRoute
   '/certificates': typeof CertificatesRoute
+  '/checkout-summary': typeof CheckoutSummaryRoute
   '/contact': typeof ContactRoute
+  '/contact-us': typeof ContactUsRoute
+  '/event': typeof EventRoute
   '/event-info': typeof EventInfoRoute
   '/gallery': typeof GalleryRoute
+  '/privacy-policy': typeof PrivacyPolicyRoute
+  '/refund-policy': typeof RefundPolicyRoute
   '/register': typeof RegisterRoute
+  '/shipping-policy': typeof ShippingPolicyRoute
+  '/terms-and-conditions': typeof TermsAndConditionsRoute
   '/theme-preview': typeof ThemePreviewRoute
+  '/status/failure': typeof StatusFailureRoute
+  '/status/success': typeof StatusSuccessRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/admin': typeof AdminRoute
   '/certificates': typeof CertificatesRoute
+  '/checkout-summary': typeof CheckoutSummaryRoute
   '/contact': typeof ContactRoute
+  '/contact-us': typeof ContactUsRoute
+  '/event': typeof EventRoute
   '/event-info': typeof EventInfoRoute
   '/gallery': typeof GalleryRoute
+  '/privacy-policy': typeof PrivacyPolicyRoute
+  '/refund-policy': typeof RefundPolicyRoute
   '/register': typeof RegisterRoute
+  '/shipping-policy': typeof ShippingPolicyRoute
+  '/terms-and-conditions': typeof TermsAndConditionsRoute
   '/theme-preview': typeof ThemePreviewRoute
+  '/status/failure': typeof StatusFailureRoute
+  '/status/success': typeof StatusSuccessRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -93,11 +165,20 @@ export interface FileRoutesById {
   '/about': typeof AboutRoute
   '/admin': typeof AdminRoute
   '/certificates': typeof CertificatesRoute
+  '/checkout-summary': typeof CheckoutSummaryRoute
   '/contact': typeof ContactRoute
+  '/contact-us': typeof ContactUsRoute
+  '/event': typeof EventRoute
   '/event-info': typeof EventInfoRoute
   '/gallery': typeof GalleryRoute
+  '/privacy-policy': typeof PrivacyPolicyRoute
+  '/refund-policy': typeof RefundPolicyRoute
   '/register': typeof RegisterRoute
+  '/shipping-policy': typeof ShippingPolicyRoute
+  '/terms-and-conditions': typeof TermsAndConditionsRoute
   '/theme-preview': typeof ThemePreviewRoute
+  '/status/failure': typeof StatusFailureRoute
+  '/status/success': typeof StatusSuccessRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -106,33 +187,60 @@ export interface FileRouteTypes {
     | '/about'
     | '/admin'
     | '/certificates'
+    | '/checkout-summary'
     | '/contact'
+    | '/contact-us'
+    | '/event'
     | '/event-info'
     | '/gallery'
+    | '/privacy-policy'
+    | '/refund-policy'
     | '/register'
+    | '/shipping-policy'
+    | '/terms-and-conditions'
     | '/theme-preview'
+    | '/status/failure'
+    | '/status/success'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/about'
     | '/admin'
     | '/certificates'
+    | '/checkout-summary'
     | '/contact'
+    | '/contact-us'
+    | '/event'
     | '/event-info'
     | '/gallery'
+    | '/privacy-policy'
+    | '/refund-policy'
     | '/register'
+    | '/shipping-policy'
+    | '/terms-and-conditions'
     | '/theme-preview'
+    | '/status/failure'
+    | '/status/success'
   id:
     | '__root__'
     | '/'
     | '/about'
     | '/admin'
     | '/certificates'
+    | '/checkout-summary'
     | '/contact'
+    | '/contact-us'
+    | '/event'
     | '/event-info'
     | '/gallery'
+    | '/privacy-policy'
+    | '/refund-policy'
     | '/register'
+    | '/shipping-policy'
+    | '/terms-and-conditions'
     | '/theme-preview'
+    | '/status/failure'
+    | '/status/success'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -140,11 +248,20 @@ export interface RootRouteChildren {
   AboutRoute: typeof AboutRoute
   AdminRoute: typeof AdminRoute
   CertificatesRoute: typeof CertificatesRoute
+  CheckoutSummaryRoute: typeof CheckoutSummaryRoute
   ContactRoute: typeof ContactRoute
+  ContactUsRoute: typeof ContactUsRoute
+  EventRoute: typeof EventRoute
   EventInfoRoute: typeof EventInfoRoute
   GalleryRoute: typeof GalleryRoute
+  PrivacyPolicyRoute: typeof PrivacyPolicyRoute
+  RefundPolicyRoute: typeof RefundPolicyRoute
   RegisterRoute: typeof RegisterRoute
+  ShippingPolicyRoute: typeof ShippingPolicyRoute
+  TermsAndConditionsRoute: typeof TermsAndConditionsRoute
   ThemePreviewRoute: typeof ThemePreviewRoute
+  StatusFailureRoute: typeof StatusFailureRoute
+  StatusSuccessRoute: typeof StatusSuccessRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -177,11 +294,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CertificatesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/checkout-summary': {
+      id: '/checkout-summary'
+      path: '/checkout-summary'
+      fullPath: '/checkout-summary'
+      preLoaderRoute: typeof CheckoutSummaryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/contact': {
       id: '/contact'
       path: '/contact'
       fullPath: '/contact'
       preLoaderRoute: typeof ContactRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/contact-us': {
+      id: '/contact-us'
+      path: '/contact-us'
+      fullPath: '/contact-us'
+      preLoaderRoute: typeof ContactUsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/event': {
+      id: '/event'
+      path: '/event'
+      fullPath: '/event'
+      preLoaderRoute: typeof EventRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/event-info': {
@@ -198,6 +336,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof GalleryRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/privacy-policy': {
+      id: '/privacy-policy'
+      path: '/privacy-policy'
+      fullPath: '/privacy-policy'
+      preLoaderRoute: typeof PrivacyPolicyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/refund-policy': {
+      id: '/refund-policy'
+      path: '/refund-policy'
+      fullPath: '/refund-policy'
+      preLoaderRoute: typeof RefundPolicyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/register': {
       id: '/register'
       path: '/register'
@@ -205,11 +357,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RegisterRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/shipping-policy': {
+      id: '/shipping-policy'
+      path: '/shipping-policy'
+      fullPath: '/shipping-policy'
+      preLoaderRoute: typeof ShippingPolicyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/terms-and-conditions': {
+      id: '/terms-and-conditions'
+      path: '/terms-and-conditions'
+      fullPath: '/terms-and-conditions'
+      preLoaderRoute: typeof TermsAndConditionsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/theme-preview': {
       id: '/theme-preview'
       path: '/theme-preview'
       fullPath: '/theme-preview'
       preLoaderRoute: typeof ThemePreviewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/status/failure': {
+      id: '/status/failure'
+      path: '/status/failure'
+      fullPath: '/status/failure'
+      preLoaderRoute: typeof StatusFailureRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/status/success': {
+      id: '/status/success'
+      path: '/status/success'
+      fullPath: '/status/success'
+      preLoaderRoute: typeof StatusSuccessRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -220,11 +400,20 @@ const rootRouteChildren: RootRouteChildren = {
   AboutRoute: AboutRoute,
   AdminRoute: AdminRoute,
   CertificatesRoute: CertificatesRoute,
+  CheckoutSummaryRoute: CheckoutSummaryRoute,
   ContactRoute: ContactRoute,
+  ContactUsRoute: ContactUsRoute,
+  EventRoute: EventRoute,
   EventInfoRoute: EventInfoRoute,
   GalleryRoute: GalleryRoute,
+  PrivacyPolicyRoute: PrivacyPolicyRoute,
+  RefundPolicyRoute: RefundPolicyRoute,
   RegisterRoute: RegisterRoute,
+  ShippingPolicyRoute: ShippingPolicyRoute,
+  TermsAndConditionsRoute: TermsAndConditionsRoute,
   ThemePreviewRoute: ThemePreviewRoute,
+  StatusFailureRoute: StatusFailureRoute,
+  StatusSuccessRoute: StatusSuccessRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

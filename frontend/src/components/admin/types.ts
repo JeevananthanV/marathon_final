@@ -21,6 +21,11 @@ export interface Participant {
   registrationDate: string;
   finishTime?: string;
   raceStatus?: "Pending" | "Finished" | "DNF" | "DNS";
+  kitCollected?: "No" | "Yes" | string;
+  kitCollectedAt?: string;
+  attendeeCheckedIn?: "No" | "Yes" | string;
+  checkedInAt?: string;
+  verifyCode?: string;
 }
 
 export interface ContactMessage {

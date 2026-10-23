@@ -1,20 +1,21 @@
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Download } from "lucide-react";
+import { Download, Package, CheckCircle2, Clock, QrCode, ExternalLink } from "lucide-react";
 import { PremiumStackedBarChart } from "./charts/PremiumCharts";
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
 import { COLORS } from "./charts/PremiumCharts";
 import { PremiumBadge, InsightCard, PremiumAvatar, PremiumSkeleton, StatTrend, PremiumProgressRing, PremiumCard, SectionHeader, PageHeader } from "./PremiumUI";
 import { TrendBadge } from "./TrendComponents";
-import type { TShirtRow } from "./types";
+import type { TShirtRow, Participant } from "./types";
 
 interface TShirtTabProps {
   tshirtData: TShirtRow[];
+  participants?: Participant[];
 }
 
-export function TShirtTab({ tshirtData }: TShirtTabProps) {
+export function TShirtTab({ tshirtData, participants }: TShirtTabProps) {
   function exportCSV() {
     const headers = ["Size", "5K", "10K", "21K", "Total"];
     const rows = tshirtData.map((t) => [t.size, t.races["5k"], t.races["10k"], t.races["21k"], t.total]);
@@ -40,8 +41,82 @@ export function TShirtTab({ tshirtData }: TShirtTabProps) {
     ? tshirtData.reduce((max, t) => t.total > max.total ? t : max, tshirtData[0])
     : { size: "N/A", total: 0 };
 
+  const totalParticipants = participants ? participants.length : totalAll;
+  const kitsCollected = participants ? participants.filter(p => p.kitCollected === "Yes").length : 0;
+  const kitsPending = Math.max(0, totalParticipants - kitsCollected);
+  const fulfillmentPct = totalParticipants > 0 ? Math.round((kitsCollected / totalParticipants) * 100) : 0;
+
   return (
     <div className="space-y-6 animate-fade-in-up">
+      {/* Kit & T-Shirt Expo Distribution Counter */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card className="bg-card border border-slate-200 dark:border-white/10 rounded-2xl p-4 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+              <Package className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Total Kits</p>
+              <h3 className="text-2xl font-black text-foreground">{totalParticipants}</h3>
+            </div>
+          </div>
+          <p className="text-[11px] text-muted-foreground mt-2">All registered marathon runners</p>
+        </Card>
+
+        <Card className="bg-card border border-emerald-500/20 rounded-2xl p-4 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl bg-emerald-500/15 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+              <CheckCircle2 className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Kits Collected</p>
+              <h3 className="text-2xl font-black text-emerald-600 dark:text-emerald-400">{kitsCollected}</h3>
+            </div>
+          </div>
+          <div className="mt-2.5 flex items-center gap-2">
+            <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
+              <div
+                className="h-full bg-emerald-500 rounded-full transition-all duration-500"
+                style={{ width: `${fulfillmentPct}%` }}
+              />
+            </div>
+            <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">{fulfillmentPct}%</span>
+          </div>
+        </Card>
+
+        <Card className="bg-card border border-amber-500/20 rounded-2xl p-4 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl bg-amber-500/15 flex items-center justify-center text-amber-600 dark:text-amber-400">
+              <Clock className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Kits Pending</p>
+              <h3 className="text-2xl font-black text-amber-600 dark:text-amber-400">{kitsPending}</h3>
+            </div>
+          </div>
+          <p className="text-[11px] text-muted-foreground mt-2">Awaiting bib & kit expo pickup</p>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-primary/10 via-card to-card border border-primary/20 rounded-2xl p-4 shadow-sm flex flex-col justify-between">
+          <div>
+            <p className="text-xs font-bold text-primary uppercase tracking-wider">Expo Desk Tools</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Quick scanners for distribution booth</p>
+          </div>
+          <div className="flex gap-2 mt-3">
+            <a href="/scan" target="_blank" rel="noopener noreferrer" className="flex-1">
+              <Button size="sm" className="w-full h-8 text-xs font-semibold rounded-xl bg-primary hover:bg-primary/90 text-white">
+                <QrCode className="h-3.5 w-3.5 mr-1" /> QR Scanner
+              </Button>
+            </a>
+            <a href="/verify" target="_blank" rel="noopener noreferrer">
+              <Button size="sm" variant="outline" className="h-8 text-xs font-semibold rounded-xl border-border">
+                <ExternalLink className="h-3.5 w-3.5" />
+              </Button>
+            </a>
+          </div>
+        </Card>
+      </div>
+
       <div className="flex flex-col items-center justify-center text-center gap-3">
         <div>
           <p className="text-sm text-muted-foreground text-center">

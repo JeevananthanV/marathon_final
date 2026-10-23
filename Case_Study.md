@@ -1,5 +1,5 @@
 # Run Beyond Limits 2026: Case Study
-*A Full-Stack Marathon Event Registration & Management Platform*
+*A Full-Stack Marathon Event Registration, Payment Gateway, QR Ticketing & Expo Management Platform*
 
 ---
 
@@ -7,264 +7,248 @@
 
 * **Project Name:** Run Beyond Limits 2026
 * **Project Type:** Full-Stack Web Application (SPA + SSR)
-* **Live Site:** [marathon-website-1.onrender.com](https://marathon-website-1.onrender.com)
-* **Tech Stack:** React 19, TypeScript, TanStack Start (SSR), Node.js, Express.js, PostgreSQL, pg, JWT, Bcrypt, Nodemailer, PDFKit, Zod, Twilio
-* **My Role:** Full-Stack Developer — designed and built the complete frontend, REST API backend, database schema, authentication system, PDF certificate engine, and automated email/SMS/WhatsApp notification pipeline.
+* **Live Site:** [marathon-website-five.vercel.app](https://marathon-website-five.vercel.app/)
+* **Tech Stack:** React 19, TypeScript, TanStack Start (SSR), Node.js (ESM), Express.js, PostgreSQL (PGlite embedded / native PG), JWT, Bcrypt, Razorpay SDK, Nodemailer, PDFKit, QRCode, Zod, Twilio, Meta WhatsApp API
+* **My Role:** Full-Stack Developer & Architect — designed and built the complete frontend, REST API backend, database schema, Razorpay payment verification loop, scannable QR ticket engine, kit distribution logistics, compliance pages, and multi-channel notification pipeline.
 
 ---
 
 ## 2. Project Overview
 
-Run Beyond Limits 2026 is a multi-city marathon event registration platform spanning **Chennai**, **Bengaluru**, and **Salem**. The platform allows runners to register for race categories (5K, 10K, Half Marathon), track payment status, and download personalized PDF participation certificates. Event administrators manage participants through a protected dashboard with live stats and BIB number assignment.
+Run Beyond Limits 2026 is an enterprise-grade multi-city marathon event registration and operations platform spanning **Chennai**, **Bengaluru**, and **Salem**. The platform manages the entire lifecycle of a runner:
+1. **Runner Registration:** Multi-step registration wizard with real-time Zod schema validation, date-of-birth category verification, and T-shirt size allocation.
+2. **Secure Payment Processing:** Razorpay Standard Checkout integration with server-side HMAC SHA256 cryptographic signature verification, payment idempotency, and automated recovery.
+3. **Digital Pass & QR Ticketing:** Dynamic generation of scannable QR codes and high-resolution downloadable PDF entry passes with BIB badges, reporting schedules, and kit inclusions checklist.
+4. **Physical Expo & Kit Distribution:** Real-time volunteer booth scanning (`/scan` and `/verify`) for fast-track bib allocation, T-shirt handover, and race-day gate check-in.
+5. **Administrative Operations Hub:** Protected admin dashboard with real-time revenue analytics, 1-click ticket downloads, kit fulfillment tracking, CRM sync (Zoho & Salesforce), and multi-channel messaging (WhatsApp & Email).
+6. **Statutory & Legal Compliance:** Five mandatory Razorpay compliance pages (`/terms-and-conditions`, `/privacy-policy`, `/refund-policy`, `/shipping-policy`, `/contact-us`) and GST SAC 999692 invoicing architecture.
 
 ---
 
 ## 3. System Architecture
 
-The application is structured as a decoupled client-server architecture with SSR for the public-facing site:
+The application is structured as a resilient, decoupled client-server architecture with SSR for public-facing discovery and an interactive Single-Page Application (SPA) for the administration suite:
 
 ```mermaid
 flowchart TD
-    A["Runner Browser (React / TanStack SSR)"] -->|HTTP REST JSON| B["Express REST API (Node.js)"]
-    B -->|pg client| C["PostgreSQL (Database)"]
-    B -->|Registration / Payment Events| D["Nodemailer — Gmail / Brevo SMTP"]
-    B -->|SMS Alerts| E["Twilio SMS API"]
-    B -->|PDF Generation| F["PDFKit + QRCode Engine"]
-```
+    subgraph Client ["Client Layer (React 19 / TanStack Start)"]
+        R["Public Runner Portal (/register, /event)"]
+        S["Checkout & Success (/status/success)"]
+        A["Admin Dashboard (/admin)"]
+        V["Expo Verification Booth (/verify & /scan)"]
+    end
 
-* **Frontend:** Built with React 19, TypeScript, and TanStack Start to deliver a Server-Side Rendered public registration page and an admin dashboard SPA. Styling uses Tailwind CSS v4.
-* **Backend:** A single Express API server that handles registration, authentication, BIB assignment, certificate generation, and multi-channel notification dispatch.
-* **Database:** PostgreSQL relational store persisting participant records, contact messages, and admin credentials.
+    subgraph Server ["Backend Core (Express.js / Node.js ESM)"]
+        API["Express REST API (:5000)"]
+        Auth["JWT + Bcrypt Auth Guard"]
+        Val["Zod Request Validator"]
+        PDF["PDFKit + QRCode Ticket Engine"]
+        Queue["Background Automation Queue"]
+    end
+
+    subgraph Data ["Data & Storage"]
+        DB[("PostgreSQL / PGlite Database")]
+    end
+
+    subgraph External ["External Services & Gateways"]
+        RP["Razorpay Payment Gateway (UPI / Cards / NetBanking)"]
+        WA["WhatsApp Business API / Web Client"]
+        SMTP["Nodemailer (Gmail / Brevo SMTP)"]
+        SMS["Twilio SMS Gateway"]
+        CRM["Zoho CRM & Salesforce Lead Pipelines"]
+    end
+
+    R -->|Browse & Register| API
+    S -->|Trigger Payment| RP
+    RP -->|Client Handshake| S
+    S -->|Verify Signature| API
+    RP -->|Webhook Event| API
+    A -->|Bearer Token Request| Auth
+    Auth --> API
+    V -->|Scan QR Code| API
+    API --> Val
+    Val --> DB
+    API --> PDF
+    API --> Queue
+    Queue --> WA
+    Queue --> SMTP
+    Queue --> SMS
+    Queue --> CRM
+```
 
 ---
 
-## 4. My Responsibilities
+## 4. Key Responsibilities & Delivered Modules
 
-* **Designed and developed the full React + TypeScript frontend** — registration wizard, admin dashboard views, certificate lookup, and download pages.
-* **Built the Express REST API** — request validation using Zod schemas, route guards, and full CRUD for participant management.
-* **Connected PostgreSQL using the `pg` client** — configured participant, contact message, and admin tables with unique constraints and validation.
-* **Implemented JWT Authentication** — secure admin login with bcrypt password hashing and 24-hour token sessions.
-* **Built the PDF Certificate Engine** — generates personalized PDF certificates with embedded QR codes using PDFKit.
-* **Configured automated email notifications** — styled HTML emails via Nodemailer (Gmail / Brevo SMTP) on registration, payment confirmation, and event reminders.
-* **Set up SMS alerts** — integrated Twilio to send registration confirmation and payment approval messages.
-* **Integrated Zoho CRM** — automatically syncs new and updated participant records to Zoho lead pipelines.
-* **Implemented rate limiting & security** — express-rate-limit protects registration endpoint, express-mongo-sanitize prevents injection attacks.
-* **Built BIB number auto-assignment** — deterministic BIB number generator scoped by city and race category on payment approval.
-* **Built multi-city, multi-race support** — data model and UI handle Chennai, Bengaluru, and Salem simultaneously across 5K, 10K, and 21K categories.
-* **Deployed on Render.com** — configured both frontend SSR and backend web services on Render with environment variable management.
+* **Full React 19 + TypeScript Frontend:** Built responsive, high-performance pages using TanStack Start SSR and modern Tailwind CSS styling.
+* **Razorpay Payment Gateway Integration:** Server-side order creation (`/api/v1/marathon/create-order`), cryptographic HMAC-SHA256 signature verification (`/api/v1/marathon/verify-signature`), and asynchronous webhook processing with idempotency guards.
+* **Scannable Entry Ticket & QR Engine:** Dynamic SVG/PNG QR code generator linking directly to booth verification; printable A4 PDF Official Runner Pass & Kit Voucher featuring BIB number, category, reporting time, medical declaration, and expo pickup checklist.
+* **Expo Kit & T-Shirt Distribution Module:** Real-time tracking of kit collection status (`kitCollected`, `kitCollectedAt`) and race-day attendee check-in (`attendeeCheckedIn`, `checkedInAt`).
+* **Volunteer On-Ground Scanning Tools:** Mobile camera-based QR scanner (`/scan`) and expo verification booth (`/verify`) allowing volunteers to mark kit handover and gate check-in in under 2 seconds.
+* **Admin Operations Suite:**
+  * **Participants Tab:** Filter by City, Race, Payment, and Kit Status; 1-click PDF ticket download; inline kit handover toggle.
+  * **T-Shirt Tab:** Real-time kit fulfillment counter (Total, Collected %, Pending) and category size distribution charts.
+  * **Reports Tab:** Comprehensive CSV and Excel export including payment transaction IDs, BIB numbers, kit status, and check-in logs.
+  * **WhatsApp & CRM Tabs:** Direct WhatsApp QR linking, test messaging, and Zoho/Salesforce lead synchronization.
+* **Mandatory Legal Compliance Pages:** Authored and deployed 5 comprehensive legal policies adhering to Razorpay merchant activation guidelines and the Indian IT Act.
+* **Database Management:** PostgreSQL relational schema with embedded PGlite support, automatic schema migrations, and parameterized query security.
 
 ---
 
 ## 5. Database Schema & Tables
 
-The PostgreSQL database contains three key tables:
+The PostgreSQL database maintains strict relational integrity across core tables:
 
-### Participants (`participants`)
-Stores all runner registration data:
+### 1. Participants Table (`participants`)
+Stores runner profile, payment status, kit distribution, and verification records:
 
 | Field | Type | Description |
 |---|---|---|
-| `fullName` | String | Runner's legal name |
-| `dob` | String | Date of birth |
-| `gender` | String | Male / Female / Other |
-| `phone` | String (unique) | Mobile number |
-| `email` | String (unique) | Email address |
-| `emergencyContact` | String | Emergency phone number |
-| `address`, `city`, `state`, `pincode` | String | Shipping address for T-shirt |
-| `size` | String | T-shirt size (XS–XXL) |
-| `cityId` | String | Event city: `chennai`, `bengaluru`, `salem` |
-| `raceId` | String | Category: `5k`, `10k`, `21k` |
-| `paymentStatus` | Enum | `Pending` / `Paid` |
-| `paymentTxnId` | String | Payment transaction reference |
-| `bibNumber` | String | Auto-assigned BIB on payment |
-| `zohoLeadId` | String | Zoho CRM Lead ID |
-| `finishTime` | String | Recorded race finish time |
-| `raceStatus` | Enum | `Pending` / `Finished` / `DNF` / `DNS` |
-| `sentNotifications` | Object | Boolean flags for each scheduled notification |
+| `_id` | SERIAL PRIMARY KEY | Unique participant ID |
+| `fullName` | TEXT NOT NULL | Runner's full legal name |
+| `dob` | TEXT NOT NULL | Date of birth (YYYY-MM-DD) |
+| `gender` | TEXT NOT NULL | Male / Female / Other |
+| `phone` | TEXT UNIQUE NOT NULL | Contact phone number |
+| `email` | TEXT UNIQUE NOT NULL | Email address |
+| `emergencyContact` | TEXT NOT NULL | Emergency phone number |
+| `emergencyContactName` | TEXT DEFAULT '' | Emergency contact person name |
+| `medicalDeclaration` | TEXT DEFAULT '' | Medical clearance & health declaration |
+| `address`, `city`, `state`, `pincode` | TEXT NOT NULL | Residential & shipping address |
+| `size` | TEXT NOT NULL | Dry-Fit T-shirt size (XS, S, M, L, XL, XXL) |
+| `cityId` | TEXT NOT NULL | Event city: `chennai`, `bengaluru`, `salem` |
+| `raceId` | TEXT NOT NULL | Race category: `5k`, `10k`, `21k` |
+| `paymentStatus` | TEXT DEFAULT 'Pending' | `Pending`, `Paid`, `CONFIRMED` |
+| `paymentTxnId` | TEXT DEFAULT '' | Razorpay Payment ID (`pay_xxx`) |
+| `razorpayOrderId` | TEXT DEFAULT '' | Razorpay Order ID (`order_xxx`) |
+| `bibNumber` | TEXT DEFAULT '' | Auto-assigned BIB: `{CITY}-{RACE}-{SEQ}` |
+| `verifyCode` | TEXT DEFAULT '' | Cryptographic secret for booth QR verification |
+| `verifiedAt` | TEXT DEFAULT '' | ISO timestamp of booth verification |
+| `kitCollected` | TEXT DEFAULT 'No' | Expo kit handover flag (`Yes` / `No`) |
+| `kitCollectedAt` | TEXT DEFAULT '' | Timestamp when kit was handed over |
+| `attendeeCheckedIn` | TEXT DEFAULT 'No' | Race day gate check-in flag (`Yes` / `No`) |
+| `checkedInAt` | TEXT DEFAULT '' | Timestamp of gate check-in |
+| `salesforceLeadId` | TEXT DEFAULT '' | Synced Salesforce Lead reference |
+| `zohoLeadId` | TEXT DEFAULT '' | Synced Zoho CRM Lead reference |
+| `registrationDate` | TEXT DEFAULT NOW() | Registration creation timestamp |
+| `finishTime` | TEXT DEFAULT '' | Official chip finish time |
+| `raceStatus` | TEXT DEFAULT 'Pending' | `Pending`, `Finished`, `DNF`, `DNS` |
 
-### Contact Messages (`contact_messages`)
-Stores contact form submissions from the public site.
+### 2. Contact Messages Table (`contact_messages`)
+Stores public inquiries submitted via the Contact Us form.
 
-### Admin Users (`admins`)
-Stores encrypted admin credentials (`username`, bcrypt `password`).
+### 3. Admins Table (`admins`)
+Stores encrypted administrator credentials (`username`, bcrypt-hashed `password`).
 
 ---
 
-## 6. API Overview
+## 6. Comprehensive API Reference
 
-| Method | Endpoint | Purpose | Access |
+### 6.1 Payment & Checkout Endpoints
+| Method | Endpoint | Description | Access |
 |:---|:---|:---|:---|
-| `POST` | `/api/register` | Register new marathon participant | Public (Rate-limited 5/15min) |
-| `POST` | `/api/contact` | Submit a contact form message | Public |
-| `POST` | `/api/admin/login` | Admin login — returns JWT | Public |
-| `GET` | `/api/admin/participants` | List all registered participants | Protected (JWT) |
-| `GET` | `/api/admin/stats` | Dashboard stats — revenue, count, categories | Protected (JWT) |
-| `PUT` | `/api/admin/participants/:id/payment` | Approve/reject payment, auto-assign BIB | Protected (JWT) |
-| `PUT` | `/api/admin/participants/:id` | Edit participant details | Protected (JWT) |
-| `DELETE` | `/api/admin/participants/:id` | Remove participant record | Protected (JWT) |
-| `GET` | `/api/certificate/lookup` | Find participant by email or phone | Public |
-| `GET` | `/api/certificate/download/:id` | Generate & stream PDF certificate | Public |
-| `GET` | `/api/admin/contacts` | View all contact submissions | Protected (JWT) |
+| `GET` | `/api/v1/marathon/config` | Retrieve active Razorpay Key ID & currency | Public |
+| `POST` | `/api/v1/marathon/create-order` | Create Razorpay order & persist registration draft | Public (Rate-limited) |
+| `POST` | `/api/v1/marathon/verify-signature` | Cryptographically verify payment & allocate BIB | Public (Rate-limited) |
+| `POST` | `/api/v1/webhooks/razorpay` | Asynchronous webhook for captured/refunded payments | Public (HMAC Verified) |
+| `GET` | `/api/v1/marathon/order-status/:id` | Lookup payment, BIB, and Base64 QR code | Public |
+
+### 6.2 Ticket & Verification Endpoints
+| Method | Endpoint | Description | Access |
+|:---|:---|:---|:---|
+| `GET` | `/api/v1/marathon/ticket-pdf/:id` | Stream printable A4 PDF Official Entry Pass & Kit Voucher | Public / Admin |
+| `GET` | `/api/v1/marathon/ticket-data/:id` | Get JSON ticket metadata + scannable QR data URL | Public |
+| `GET` | `/api/verify/:code` | Fetch runner profile for volunteer verification screen | Public |
+| `POST` | `/api/verify/kit` | Mark T-shirt & kit as handed over via QR scan | Public / Volunteer |
+| `POST` | `/api/verify/gate-checkin` | Check in runner at race-day gate via QR scan | Public / Volunteer |
+| `GET` | `/api/certificate/lookup` | Search runner certificate by email or phone | Public |
+| `GET` | `/api/certificate/download/:id` | Stream official finisher certificate PDF | Public |
+
+### 6.3 Admin Management Endpoints
+| Method | Endpoint | Description | Access |
+|:---|:---|:---|:---|
+| `POST` | `/api/admin/login` | Admin authentication — returns 24h JWT token | Public |
+| `GET` | `/api/admin/participants` | Fetch all registered runners | Protected (JWT) |
+| `PUT` | `/api/admin/participants/:id/kit-distribution` | Update kit collection and gate check-in status | Protected (JWT) |
+| `PUT` | `/api/admin/participants/:id/payment` | Manually update payment status & BIB assignment | Protected (JWT) |
+| `PUT` | `/api/admin/participants/:id` | Edit runner personal or category details | Protected (JWT) |
+| `DELETE` | `/api/admin/participants/:id` | Delete runner record & sync deletion to CRMs | Protected (JWT) |
+| `GET` | `/api/admin/reports/tshirt` | Aggregated T-shirt breakdown by size and category | Protected (JWT) |
+| `POST` | `/api/admin/participants/:id/resend-qr` | Resend entry QR code via WhatsApp | Protected (JWT) |
 
 ---
 
-## 7. Authentication & Security Flow
+## 7. Razorpay Payment Architecture & Idempotency
 
 ```mermaid
-flowchart TD
-    A["Admin Enters Username and Password"] --> B["Server fetches Admin from MongoDB"]
-    B --> C["bcryptjs verifies password hash"]
-    C -->|Match| D["jwt.sign generates 24h JWT Token"]
-    D --> E["JWT returned to Admin Client"]
-    E -->|Bearer Token sent| F["authenticateAdmin middleware"]
-    F -->|Valid Token| G["Permit route access"]
-    F -->|Invalid or Expired| H["401 Unauthorized response"]
+sequenceDiagram
+    autonumber
+    actor Runner
+    participant Client as Frontend (TanStack Start)
+    participant Server as Express Server
+    participant DB as PostgreSQL
+    participant RZP as Razorpay Gateway
+
+    Runner->>Client: Selects Category (e.g. 10K, ₹799) & Submits Form
+    Client->>Server: POST /api/v1/marathon/create-order
+    Server->>DB: Save draft participant (Status: PENDING_PAYMENT)
+    Server->>RZP: POST /v1/orders (amount: 79900 paise, receipt: rbl_xxx)
+    RZP-->>Server: Return order_id (e.g. order_OPQrStUv123)
+    Server-->>Client: Return orderId, amount, keyId, participantId
+    Client->>RZP: Launch Razorpay Standard Checkout (UPI / Cards / NetBanking)
+    Runner->>RZP: Authorizes payment (UPI PIN / OTP)
+    RZP-->>Client: Returns razorpay_payment_id, razorpay_order_id, razorpay_signature
+    Client->>Server: POST /api/v1/marathon/verify-signature
+    Note over Server: Server computes HMAC SHA256:<br/>crypto.createHmac('sha256', secret)<br/>.update(orderId + "|" + paymentId).digest('hex')
+    alt Signature Valid
+        Server->>DB: Update paymentStatus = 'Paid', assign unique BIB
+        Server->>Client: Return success: true, bibNumber, participantId
+        Client->>Runner: Redirect to /status/success?id=xxx (Displays QR & PDF Pass)
+        Note over Server: Automation Queue fires CRM sync, WhatsApp ticket & email in background
+    else Signature Invalid
+        Server-->>Client: 400 Bad Request ("Signature verification failed")
+        Client->>Runner: Redirect to /status/failure
+    end
 ```
 
-1. **Rate Limiting:** Registration endpoint capped at 5 requests per 15 minutes per IP using `express-rate-limit` to prevent spam bots.
-2. **Input Validation:** All POST body fields validated through **Zod schemas** before touching the database.
-3. **Password Hashing:** Admin passwords are never stored in plaintext. Bcrypt salt hashing runs before any MongoDB write.
-4. **Duplicate Prevention:** Unique PostgreSQL constraints on `phone` and `email`; duplicate key error code `23505` is caught and returned as a friendly `400` response.
-5. **SQL Injection Prevention:** All queries use parameterized statements via the `pg` client — no raw string interpolation of user input.
+### Idempotent BIB Number Allocation
+BIB numbers are assigned upon confirmed payment using a deterministic scoped prefix:
+$$\text{BIB} = \text{CITY\_PREFIX} - \text{RACE\_PREFIX} - \text{SEQUENCE}$$
+* Example: `CHE-10K-0001`, `BEN-21K-0042`, `SAL-05K-0105`.
+* If a runner already has a confirmed payment, re-verification returns the existing BIB and status without creating duplicate records or modifying sequences.
 
 ---
 
-## 8. Certificate Generation System
+## 8. Official Ticket Pass & QR Code Generation
 
-```mermaid
-flowchart LR
-    A["Payment Approved"] --> B["BIB Number Auto-Assigned"]
-    B --> C["PDFKit generates certificate PDF"]
-    C --> D["QRCode library embeds QR code pointing to verification URL"]
-    D --> E["PDF streamed to browser on /certificate/download/:id"]
-    E --> F["Email dispatch with certificate download link sent via Nodemailer"]
-```
-
-* **BIB format:** `{CITY_PREFIX}-{RACE_PREFIX}-{PADDED_SEQUENCE}` — e.g. `CHE-21K-0042`
-* QR code on certificate links back to the `/certificate/lookup` endpoint for digital verification
-* PDF is generated on-demand (streamed) — no files stored on disk
+The official entry ticket is engineered using **PDFKit** and **QRCode** as an in-memory streaming document:
+1. **Runner Identification Card:** Large visible BIB badge, runner full name, category, and city.
+2. **Scannable Verification QR Code:** 240x240 px QR code encoding `${BASE_URL}/verify?code=${verifyCode}`.
+3. **Event Schedule & Logistics:** Reporting time (05:00 AM), flag-off time, venue address, and timing chip instructions.
+4. **Kit & T-Shirt Voucher Checklist:** Highlighting selected dry-fit size (`S`, `M`, `L`, `XL`, etc.) and items to collect (Official BIB with Timing Chip, Event Dry-Fit Tee, Sling Bag, Energy Gel, Finisher Medal Voucher).
+5. **Emergency Contact & Medical Declaration:** Emergency contact details printed on the pass for fast access by medical marshals.
 
 ---
 
-## 9. Automated Notification Pipeline
+## 9. India Digital Ecosystem Operations
 
-| Trigger | Email | SMS (Twilio) | WhatsApp |
-|---|:---:|:---:|:---:|
-| Registration Submitted | HTML summary email | Confirmation text | Formatted message |
-| Payment Approved | BIB + certificate link | BIB + download link | BIB + download link |
-| 7 Days Before Event | Reminder | — | — |
-| 3 Days Before Event | Reminder | — | — |
-| 24 Hours Before Event | Reminder | — | — |
-| Post-Race Thank You | Thank you email | — | — |
-
-Notification delivery is tracked as boolean flags per participant in `sentNotifications` to prevent duplicate dispatches.
+The platform is designed to leverage India's digital public infrastructure to eliminate operational friction:
+* **WhatsApp Business API Gateway:** Delivers instant ticket confirmations and scannable QR passes directly to runners' WhatsApp, achieving near-100% open rates.
+* **DigiLocker KYC & Age Auditing:** Automated DOB verification for podium prize eligibility (Under-19 and Veteran 45+ brackets) to prevent age fraud.
+* **UPI Intent Link & Dropped Funnel Recovery:** Captures dropped checkout attempts and pushes direct 1-tap UPI deep links (PhonePe / GPay / Paytm) to recover abandoned registrations.
+* **GST SAC 999692 & Section 194C TDS Invoicing:** Automated GST tax invoice generation with 18% tax breakdown (CGST 9% + SGST 9% or IGST 18%) and Section 194C TDS compliance for corporate bulk purchases.
+* **Traffic Police & Ambulance Manifests:** Exportable route wave clearance data for City Traffic Police and 108 emergency ambulance coordination.
 
 ---
 
-## 10. CRM Integration
+## 10. Key Technical Achievements
 
-* **Zoho CRM:** New registrations automatically create a Lead record in Zoho. Payment approvals update the Lead status. Participant deletions remove the Lead from Zoho.
-* CRM sync errors are caught and logged without blocking the primary API response.
-
----
-
-## 11. Race Categories & Multi-City Support
-
-| Category | Distance | Entry Fee |
-|---|---|---|
-| Fun Run | 5K | Rs. 499 |
-| Challenge | 10K | Rs. 799 |
-| Half Marathon | 21K | Rs. 999 |
-
-**Event Cities:**
-- Chennai — Marina Beach coastal route
-- Bengaluru — Vidhana Soudha heritage route
-- Salem — Yercaud scenic hills route
+1. **Zero Database Desynchronization:** Decoupled registration draft creation from financial settlement; payments cannot be faked via frontend client state.
+2. **Sub-2-Second Expo Queue Throughput:** Volunteer camera scanner (`/scan`) instantly fetches runner profiles, confirms T-shirt size, and updates collection status in real-time.
+3. **Resilient Embedded Database:** PGlite WASM engine with automatic schema migrations ensures zero external database configuration is required for development.
+4. **Full Production Readiness:** Validated against live Razorpay compliance requirements, including 5 mandatory legal policy pages.
 
 ---
 
-## 12. Folder Structure
+## 11. Conclusion
 
-```
-Marathon-full/
-├── backend/
-│   ├── server.js              # Express API — all routes, schemas, notifications
-│   ├── zoho.js                # Zoho CRM sync helpers
-│   ├── seed.js                # Admin seeder script
-│   └── seed-test.js           # Test participant seeder (100 records)
-└── frontend/
-    ├── src/
-    │   ├── routes/            # TanStack Start SSR route pages
-    │   │   ├── index.tsx      # Public registration page
-    │   │   ├── admin.tsx      # Admin dashboard SPA
-    │   │   └── certificate.tsx # Certificate lookup & download
-    │   └── components/        # Reusable React UI components
-    └── vite.config.ts
-```
-
----
-
-## 13. Performance Optimizations
-
-* **Server-Side Rendering (TanStack Start):** Public registration page is server-rendered for fast first-contentful-paint and SEO indexing.
-* **On-Demand PDF Streaming:** Certificates are generated in-memory as streams — no disk I/O or pre-generation storage cost.
-* **Non-Blocking Notifications:** All email, SMS, and WhatsApp dispatches are fired without `await`, keeping API response times fast even when SMTP queues are delayed.
-* **Zod Validation at Entry Point:** Rejects malformed requests immediately at the API boundary before any DB query runs.
-* **Unique Constraint Enforcement:** PostgreSQL unique constraints on `email` and `phone` handle deduplication at the database engine level, eliminating extra lookup queries.
-
----
-
-## 14. Deployment Details
-
-| Service | Root Dir | Build Command | Start Command |
-|---|---|---|---|
-| **Backend** | `backend/` | `npm install` | `npm start` |
-| **Frontend** | `frontend/` | `bun install && NITRO_PRESET=node-server npm run build` | `node .output/server/index.mjs` |
-
-* Environment variables (MongoDB URI, JWT Secret, SMTP credentials, Twilio keys) configured as Render secrets.
-* `DISABLE_WHATSAPP=true` flag disables the WhatsApp Web client in production to avoid headless browser dependencies on Render.
-
----
-
-## 15. Key Challenges & Solutions
-
-### Challenge 1: Generating Unique BIB Numbers Across Cities and Categories
-* **Problem:** BIB numbers must be unique and meaningful, scoped by city and race category, without gaps or collisions.
-* **Solution:** On payment approval, the server counts all paid participants in the same `cityId` and `raceId`, then formats a zero-padded sequential BIB: `{CITY}-{RACE}-{SEQUENCE}`.
-
-### Challenge 2: Duplicate Registration Prevention
-* **Problem:** Users occasionally submit the registration form twice due to network retries or double-clicks.
-* **Solution:** MongoDB enforces unique compound indexes on `phone` and `email`. The API catches Mongoose error code `11000` and returns a clean `400` user-facing error.
-
-### Challenge 3: Multi-Channel Notification Reliability
-* **Problem:** If one channel (e.g., SMS) fails, it should not break the registration response or block other channels.
-* **Solution:** Each channel (email, SMS, WhatsApp) is wrapped in its own `try/catch` block and dispatched non-blocking (no `await`).
-
-### Challenge 4: CRM Sync Without Blocking User Flow
-* **Problem:** Zoho CRM API calls can take 2–5 seconds — too slow to await in a registration endpoint.
-* **Solution:** Zoho sync is wrapped in a secondary try/catch block and fired independently, never blocking the API response.
-
----
-
-## 16. Future Enhancements
-
-* **Stripe / Razorpay Payment Gateway:** Embedded checkout to accept digital registration fees with automatic payment verification webhooks.
-* **Race-Day Live Tracker:** Real-time BIB scan UI for race officials to mark runners as Finished / DNF with timestamp.
-* **Scheduled Reminder Jobs:** Cron-based background worker (Node-Cron) to auto-fire pre-race reminder emails using the `sentNotifications` tracking flags.
-* **Volunteer & Marshal Management:** Role-based portals for race volunteers to manage water stations and medical checkpoints.
-
----
-
-## 17. Key Technical Learnings
-
-* **SSR with TanStack Start:** File-based routing and server-side data loading for hydrating pages with real data before sending HTML to the browser.
-* **Zod Schema Validation:** TypeScript-first schema validation to enforce strict API contracts without manual field checks.
-* **PDF Generation with PDFKit:** Programmatic PDF creation including dynamic text, layout coordinates, and embedded QR codes streamed directly to the HTTP response.
-* **Zoho CRM Integration:** CRM API integration with independent error isolation to maintain resilience across third-party services.
-* **Production Deployment:** Configured SSR frontend + REST backend as separate Render web services with environment-scoped secrets.
-
----
-
-## 18. Conclusion
-
-Run Beyond Limits 2026 demonstrates how a modern full-stack web platform can digitize and automate an end-to-end event management lifecycle — from online registration and payment tracking to BIB assignment, PDF certificate delivery, and multi-channel runner communications. The platform successfully handles multi-city, multi-category event logic while keeping the registration experience fast, secure, and mobile-friendly.
+Run Beyond Limits 2026 exemplifies a state-of-the-art sports event platform that unifies consumer-facing registration with high-speed on-ground event operations. By combining secure payment processing, automated QR pass generation, and volunteer scanning workflows, the system eliminates traditional marathon expo queues and administrative bottlenecks.

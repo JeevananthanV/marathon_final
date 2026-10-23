@@ -1,51 +1,159 @@
-# 🏃 Run Beyond Limits 2026 - Simple User Guide
-
-Welcome! This guide explains what this website is and how to use it in very simple steps.
-
-**Website Link:** [https://marathon-website-five.vercel.app/](https://marathon-website-five.vercel.app/)
-
-## 🤔 What is this website?
-This is a complete platform for the **Run Beyond Limits 2026** Marathon. 
-- **Runners** can use it to register for the run and download their certificates.
-- **Event Organizers (Admins)** can use it to track registrations, payments, and t-shirt sizes.
+# 🏃 Run Beyond Limits 2026 — User & Operations Manual
+*A complete guide for Runners, Expo Volunteers, and Event Administrators*
 
 ---
 
-## 👉 PART 1: FOR RUNNERS (How to Register)
+## 📖 Welcome
 
-Follow these simple steps to join the marathon:
+**Run Beyond Limits 2026** is an integrated marathon platform spanning **Chennai**, **Bengaluru**, and **Salem**. This manual covers everything you need to know, whether you are a runner registering for the race, an expo volunteer scanning participant passes, or an event administrator managing registrations.
 
-1. **Open the Website:** Go to the link above.
-2. **Start Registration:** Click on the **"Register Now"** button.
-3. **Fill Details:** Enter your Name, Email, and Phone Number.
-4. **Choose Location:** Select your city (Chennai, Bengaluru, or Salem).
-5. **Choose Distance & T-Shirt:** Select how far you want to run (5K, 10K, or 21K) and pick your T-Shirt size.
-6. **Make Payment:** Complete your payment.
-
-**🎉 After Payment:** 
-Once your payment is approved, you will automatically get an **Email** with your unique **BIB Number** and a **PDF Certificate**.
-
-**📥 How to Download Your Certificate Again:**
-- Go to the website and click on **Download Certificate**.
-- Just type your Email or Phone Number and hit Search to download it!
+* **Website Link:** [http://localhost:8080](http://localhost:8080)
+* **Admin Portal:** [http://localhost:8080/admin](http://localhost:8080/admin)
+* **Volunteer Scanner:** [http://localhost:8080/scan](http://localhost:8080/scan)
+* **Verification Booth:** [http://localhost:8080/verify](http://localhost:8080/verify)
 
 ---
 
-## 👉 PART 2: FOR ADMINS / ORGANIZERS (How to Manage)
+## 🏃 PART 1: FOR RUNNERS (How to Register & Get Your Pass)
 
-If you are managing the event, here is how you use the Admin Dashboard:
+### Step 1: Open the Registration Form
+1. Go to the website and click **"Register Now"** on the navigation bar or hero banner.
+2. Direct link: [http://localhost:8080/register](http://localhost:8080/register).
 
-1. **Open Admin Portal:** Go to [https://marathon-website-five.vercel.app/admin](https://marathon-website-five.vercel.app/admin)
-2. **Login:** Use these demo details:
-   - **Username:** `admin`
-   - **Password:** `password123`
-3. **Check the Dashboard:** Here you can see total registrations, total money collected, and how many people are running in each category.
-4. **Manage Participants:** Click on the **Participants** tab on the left.
-   - You will see a list of everyone who registered.
-   - You can easily search for a specific person.
-5. **Approve Payments:** If a payment is pending, click the action button to **Approve** it. 
-   - *Magic Step:* As soon as you approve, the system will automatically create a BIB Number and email the certificate to the runner!
-6. **Download Data:** Need an Excel sheet? Just click the download button to export all runner details for your records.
+### Step 2: Fill in Your Personal & Medical Details
+1. **Runner Details:** Enter your Full Legal Name, Email, and 10-digit Phone Number.
+2. **Date of Birth & Age Verification:** Select your birth date. The system automatically confirms that you meet the age requirements for your selected category (e.g., minimum 18 years for the 21.1K Half Marathon).
+3. **Emergency Contact:** Enter the name and mobile number of a family member or friend.
+4. **Medical Declaration:** Confirm your physical fitness and accept the standard marathon medical liability waiver.
+
+### Step 3: Choose Your City, Race & T-Shirt Size
+1. **Select Host City:** Choose between **Chennai** (Marina Beach), **Bengaluru** (Kanteerava Stadium), or **Salem** (Mahatma Gandhi Stadium).
+2. **Select Distance:**
+   * **5K Fun Run (₹499):** Perfect for families, beginners, and fitness enthusiasts.
+   * **10K Challenge (₹799):** Timed run for passionate runners.
+   * **21.1K Half Marathon (₹999):** Premier timed endurance race with timing chip.
+3. **Choose Dry-Fit T-Shirt Size:** Select your size (`XS`, `S`, `M`, `L`, `XL`, `XXL`). Your official event dry-fit t-shirt will be packed accordingly.
+
+### Step 4: Pay Securely via Razorpay
+1. Click **"Proceed to Payment"**.
+2. A secure **Razorpay Checkout modal** will open.
+3. Choose your preferred payment method:
+   * **UPI (Recommended):** Google Pay, PhonePe, Paytm, or enter your UPI ID.
+   * **Cards:** Any Visa, MasterCard, RuPay, or Maestro Credit/Debit card.
+   * **NetBanking:** Over 50+ supported Indian banks.
+   * **Wallets:** Amazon Pay, Mobikwik, etc.
+4. Complete the authorization (UPI PIN / OTP).
+
+### Step 5: Your Official Runner Pass & Kit Voucher
+Once payment is approved, you will be redirected immediately to your **Official Runner Pass**:
+* **Your BIB Number** (e.g., `CHE-10K-0001`) is prominently displayed.
+* **Scannable QR Code:** A digital pass unique to your registration.
+* **Kit Inclusions Voucher:** Confirming your T-shirt size and event kit pickup.
+* **Action Buttons:**
+  * **"Download Official Ticket (PDF)":** Saves a printable A4 official pass to your phone or computer.
+  * **"Print Entry Pass":** Opens your browser's print dialog directly.
+  * **"Add to Calendar (.ICS)":** Adds the race start time (05:00 AM) to your Google Calendar or Apple Calendar.
+
+### Step 6: Expo Kit Collection (What to Bring)
+1. Visit the Marathon Expo 1–2 days before race day.
+2. Show your **WhatsApp confirmation pass** or **printed PDF ticket** on your phone.
+3. The volunteer will scan your QR code and hand over your race kit containing:
+   * Official BIB with attached RFID Timing Chip
+   * Run Beyond Limits Event Dry-Fit Running Tee
+   * Official Marathon Drawstring Kit Bag
+   * Energy gel & electrolyte sachet
+   * Finisher Medal Claim Voucher
 
 ---
-*If you have any questions or the website is not working properly, please contact the technical team.*
+
+## 📷 PART 2: FOR EXPO VOLUNTEERS (Scanning & Kit Handover)
+
+Volunteers stationed at the kit distribution counters use the fast-track scanning tools to ensure zero waiting lines.
+
+### Using the QR Scanner (`/scan`)
+1. On your smartphone or tablet, open [http://localhost:8080/scan](http://localhost:8080/scan).
+2. Allow camera access.
+3. Point the camera at the runner’s phone screen or printed ticket QR code.
+4. The scanner instantly beeps and loads the runner’s profile:
+   * **Runner Name & BIB**
+   * **T-Shirt Size** (e.g., `Size L`)
+   * **Kit Status** (`Pending` or `Already Collected`)
+5. Tap **"Mark Kit Handed Over"**. The system updates the central database in real time.
+
+### Using the Manual Verification Booth (`/verify`)
+If a runner's phone camera is cracked or their QR code is smudged:
+1. Open [http://localhost:8080/verify](http://localhost:8080/verify).
+2. Type the runner’s 6-character code, BIB number, or mobile number into the search bar.
+3. Verify their government photo ID matches the name on screen.
+4. Tap **"Mark T-Shirt & Kit as Handed Over"** or **"Check-In Runner at Gate"**.
+
+---
+
+## 🔐 PART 3: FOR EVENT ADMINISTRATORS & ORGANIZERS
+
+### 1. Logging In to the Admin Panel
+1. Navigate to [http://localhost:8080/admin](http://localhost:8080/admin).
+2. Enter your administrator credentials:
+   * **Username:** `admin`
+   * **Password:** `password123` (or `adminpass` in development)
+3. Click **Sign In**.
+
+### 2. Dashboard Overview (`Dashboard` Tab)
+* **Real-time Metrics:** Total registrations, confirmed paid runners, pending payments, and gross revenue.
+* **City Distribution:** Runners breakdown across Chennai, Bengaluru, and Salem.
+* **Category Share:** 5K vs 10K vs 21K registrations.
+* **Daily Registration Velocity:** Graph showing registrations over the last 14 days.
+
+### 3. Managing Participants (`Players` Tab)
+* **Live Search & Filters:**
+  * Search instantly across runner name, email, mobile number, or BIB number.
+  * Filter by **City** (All, Chennai, Bengaluru, Salem).
+  * Filter by **Race** (All, 5K, 10K, 21K).
+  * Filter by **Payment** (Paid vs Pending).
+  * Filter by **Kit Status** (`All Kits`, `Kit Collected`, `Kit Pending`).
+* **Kit Handover Status:**
+  * Runners show an emerald badge **"Kit Handed"** or an amber badge **"Kit Pending"**.
+  * Click the badge directly in the table to toggle kit distribution status.
+* **1-Click Ticket Download:**
+  * Click the emerald **Download** icon in the Actions column to download any runner's official PDF ticket pass.
+* **Expand Row Details:**
+  * Click the **Eye** icon next to any runner to view their full emergency contact, shipping address, pass verification code, and direct link to the verification booth.
+* **Exporting Data:**
+  * Click **"CSV"** or **"Excel"** in the top right to download comprehensive runner rosters, including BIBs, kit collection timestamps, and gate check-in status.
+
+### 4. T-Shirt Inventory & Kit Fulfillment (`T-Shirts` Tab)
+* **Fulfillment Progress Cards:**
+  * **Total Kits:** Total runners requiring race kits.
+  * **Kits Collected:** Number and percentage of kits successfully handed over at the expo.
+  * **Kits Pending:** Remaining kits awaiting pickup.
+* **Size Matrix:**
+  * Detailed breakdown of required inventory for sizes `XS`, `S`, `M`, `L`, `XL`, and `XXL` across 5K, 10K, and 21K races.
+  * Exportable T-Shirt procurement report for apparel manufacturers.
+
+### 5. WhatsApp Automation (`WhatsApp` Tab)
+* **Link WhatsApp Number:** Scan the on-screen QR code using WhatsApp on your organization’s phone.
+* **Automatic Triggers:**
+  * The moment a runner pays, they receive an automated WhatsApp confirmation with their BIB number, ticket pass, and reporting schedule.
+  * Booth verification automatically pushes a *"Welcome to the Marathon"* WhatsApp notification.
+* **Test Messaging:** Send manual test messages to any phone number to verify connectivity.
+
+### 6. Statutory Compliance & Legal Pages
+All regulatory pages are accessible directly from the footer and navigation:
+* `/terms-and-conditions` — Runner rules, age eligibility, and medical disclaimers.
+* `/privacy-policy` — Data protection and medical sharing guidelines.
+* `/refund-policy` — Official policy on entry fee non-refundability and force majeure.
+* `/shipping-policy` — Physical bib expo pickup schedule and requirements.
+* `/contact-us` — Official nodal officer contacts, office address, and support desk.
+
+---
+
+## ❓ Frequently Asked Questions
+
+**Q: Can a friend pick up my kit at the expo?**  
+A: Yes. Your friend must present a copy of your **Official PDF Ticket Pass** (with its QR code) along with a photo of your valid Government ID.
+
+**Q: Can an admin reissue a lost BIB?**  
+A: Yes. Inside the Admin Panel under the **Players** tab, click **Edit** on the participant's row to re-allocate or correct their BIB number.
+
+**Q: What happens if a runner's payment fails?**  
+A: The order is marked as `Pending` or `Dropped`. The runner can simply return to `/register` or click their automated WhatsApp recovery link to re-attempt checkout without losing their details.
