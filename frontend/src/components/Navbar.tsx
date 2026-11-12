@@ -11,7 +11,7 @@ const NAV = [
   { label: "Admin", to: "/admin" },
 ];
 
-import logo from "@/assets/img.png";
+import logo from "@/assets/logo.svg";
 
 export function Logo({ compact = false, inFooter = false }: { compact?: boolean; inFooter?: boolean }) {
   return (
@@ -23,14 +23,14 @@ export function Logo({ compact = false, inFooter = false }: { compact?: boolean;
           window.scrollTo({ top: 0, behavior: "smooth" });
         }
       }}
-      className={`flex items-center group ${inFooter ? "bg-white rounded-2xl px-4 py-2 w-fit" : ""}`}
+      className={`flex items-center group ${inFooter ? "bg-slate-900/90 rounded-2xl px-4 py-2 w-fit border border-white/10" : ""}`}
     >
       <img
         src={logo}
         alt="Infinity Marathon 2027"
-        width={280}
-        height={80}
-        className={`w-auto object-contain transition-transform duration-300 group-hover:scale-105 ${inFooter ? "h-10 max-w-[140px]" : compact ? "h-7" : "h-9 md:h-10"}`}
+        width={320}
+        height={90}
+        className={`w-auto object-contain transition-transform duration-300 group-hover:scale-105 ${inFooter ? "h-11 max-w-[200px]" : compact ? "h-8" : "h-10 md:h-12"}`}
       />
     </Link>
   );

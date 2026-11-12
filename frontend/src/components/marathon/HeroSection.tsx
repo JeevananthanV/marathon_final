@@ -4,7 +4,7 @@ import { motion, useScroll, useTransform } from "framer-motion";
 import { useRef } from "react";
 import { HeroParticles } from "@/components/PremiumAnimations";
 import bgImg from "@/assets/hero-bg.jpg";
-import logo from "@/assets/img.png";
+import logo from "@/assets/logo.svg";
 import { EVENT, CITIES } from "@/data/marathon";
 
 export default function HeroSection() {
@@ -51,9 +51,9 @@ export default function HeroSection() {
             <img
               src={logo}
               alt={EVENT.name}
-              width={400}
-              height={160}
-              className="h-20 md:h-28 w-auto object-contain drop-shadow-lg"
+              width={480}
+              height={180}
+              className="h-24 md:h-32 w-auto object-contain drop-shadow-2xl"
             />
             <div className="flex flex-wrap items-center gap-3">
               <span className="inline-flex items-center gap-2 rounded-full gradient-orange text-white px-4 py-1.5 text-xs font-bold uppercase tracking-widest animate-pulse-glow">
