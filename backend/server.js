@@ -39,6 +39,18 @@ import {
   cityLabel,
 } from "./whatsapp.js";
 import { runPostRegistrationFlow, runPaymentConfirmedFlow, automationQueue, automationEnabled } from "./automation.js";
+import {
+  EVENT_CONFIG,
+  CITIES,
+  CITY_IDS,
+  RACES,
+  RACE_IDS,
+  getCityConfig,
+  getFeeInr,
+  getVenue,
+  getCityDate,
+  getCityDateISO,
+} from "./marathonConfig.js";
 
 dotenv.config();
 
@@ -108,30 +120,30 @@ if (EMAIL_CONFIGURED) {
 // ---- NOTIFICATION HELPERS ----
 
 async function sendRegistrationEmail(participant) {
-  const raceLabel = participant.raceId === "5k" ? "5K Fun Run" : participant.raceId === "10k" ? "10K Challenge" : "Half Marathon (21K)";
-  const feeMap = { "5k": "₹499", "10k": "₹799", "21k": "₹999" };
-  const fee = feeMap[participant.raceId] || "₹799";
+  const categoryName = raceLabel(participant.raceId);
+  const fee = `₹${getFeeInr(participant.cityId, participant.raceId)}`;
+  const cityCfg = getCityConfig(participant.cityId);
   const regDate = new Date(participant.registrationDate).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" });
   const BASE_URL = process.env.BASE_URL || "http://localhost:5000";
 
   const plainText = `Dear ${participant.fullName},
 
-Congratulations! You have successfully registered for Run Beyond Limits 2026.
+Congratulations! You have successfully registered for ${EVENT_CONFIG.name} (${EVENT_CONFIG.tagline}).
 
 YOUR REGISTRATION DETAILS:
 - Full Name: ${participant.fullName}
 - Phone: ${participant.phone}
-- City: ${participant.cityId}
-- Race Category: ${raceLabel}
+- City: ${cityCfg.name} (${cityCfg.date})
+- Race Category: ${categoryName}
 - T-Shirt Size: ${participant.size}
 - Registered On: ${regDate}
 - Payment Status: PENDING — ${fee} due
 
 Our team will send you the payment link shortly. Once payment is confirmed, you will receive your BIB number and a link to download your participation certificate.
 
-If you have any questions, please contact us at support@infinitymiles.com.
+If you have any questions, please contact us at ${EVENT_CONFIG.supportEmail}.
 
-Run Beyond Limits 2026 Team`;
+${EVENT_CONFIG.name} Team`;
 
   const htmlContent = `
     <!DOCTYPE html>
@@ -139,7 +151,7 @@ Run Beyond Limits 2026 Team`;
     <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
     <body style="margin:0;padding:0;background:#F1F5F9;font-family:'Segoe UI',Arial,sans-serif;">
       <div style="display:none;max-height:0;overflow:hidden;font-size:1px;line-height:1px;color:#F1F5F9;">
-        Registration confirmed for Run Beyond Limits 2026. Payment of ${fee} is pending. Details inside.
+        Registration confirmed for ${EVENT_CONFIG.name}. Payment of ${fee} is pending. Details inside.
       </div>
       <table width="100%" cellpadding="0" cellspacing="0" style="background:#F1F5F9;padding:30px 0;">
         <tr><td align="center">
@@ -153,7 +165,7 @@ Run Beyond Limits 2026 Team`;
             <!-- Header -->
             <tr>
               <td style="background:linear-gradient(135deg,#1E3A8A 0%,#F97316 100%);padding:40px 36px;text-align:center;">
-                <p style="color:rgba(255,255,255,0.8);margin:0 0 6px;font-size:13px;letter-spacing:2px;text-transform:uppercase;">Run Beyond Limits 2026</p>
+                <p style="color:rgba(255,255,255,0.8);margin:0 0 6px;font-size:13px;letter-spacing:2px;text-transform:uppercase;">${EVENT_CONFIG.upperName} · ${EVENT_CONFIG.tagline}</p>
                 <h1 style="color:#ffffff;margin:0;font-size:28px;font-weight:700;">Registration Confirmed</h1>
                 <p style="color:rgba(255,255,255,0.9);margin:12px 0 0;font-size:15px;">You're one step closer to race day!</p>
               </td>
@@ -162,7 +174,7 @@ Run Beyond Limits 2026 Team`;
             <tr>
               <td style="padding:32px 36px 8px;">
                 <p style="font-size:18px;color:#0F172A;margin:0;">Dear <strong>${participant.fullName}</strong>,</p>
-                <p style="color:#475569;margin:14px 0 0;line-height:1.7;font-size:15px;">Thank you for registering! Your spot for <strong>${raceLabel}</strong> has been reserved. Please review your details below:</p>
+                <p style="color:#475569;margin:14px 0 0;line-height:1.7;font-size:15px;">Thank you for registering! Your spot for <strong>${categoryName}</strong> in <strong>${cityCfg.name}</strong> has been reserved. Please review your details below:</p>
               </td>
             </tr>
             <!-- Details Table -->
@@ -178,12 +190,12 @@ Run Beyond Limits 2026 Team`;
                     <td style="padding:14px 18px;color:#334155;border-bottom:1px solid #E2E8F0;font-size:14px;">${participant.phone}</td>
                   </tr>
                   <tr style="background:#F8FAFC;">
-                    <td style="padding:14px 18px;font-weight:600;color:#1E3A8A;border-bottom:1px solid #E2E8F0;font-size:14px;">City</td>
-                    <td style="padding:14px 18px;color:#334155;border-bottom:1px solid #E2E8F0;font-size:14px;text-transform:capitalize;">${participant.cityId}</td>
+                    <td style="padding:14px 18px;font-weight:600;color:#1E3A8A;border-bottom:1px solid #E2E8F0;font-size:14px;">City &amp; Race Date</td>
+                    <td style="padding:14px 18px;color:#334155;border-bottom:1px solid #E2E8F0;font-size:14px;">${cityCfg.name} &mdash; ${cityCfg.date}</td>
                   </tr>
                   <tr>
                     <td style="padding:14px 18px;font-weight:600;color:#1E3A8A;border-bottom:1px solid #E2E8F0;font-size:14px;">Race Category</td>
-                    <td style="padding:14px 18px;color:#334155;border-bottom:1px solid #E2E8F0;font-size:14px;">${raceLabel}</td>
+                    <td style="padding:14px 18px;color:#334155;border-bottom:1px solid #E2E8F0;font-size:14px;">${categoryName}</td>
                   </tr>
                   <tr style="background:#F8FAFC;">
                     <td style="padding:14px 18px;font-weight:600;color:#1E3A8A;border-bottom:1px solid #E2E8F0;font-size:14px;">T-Shirt Size</td>
@@ -219,15 +231,15 @@ Run Beyond Limits 2026 Team`;
             <tr>
               <td style="padding:24px 36px;text-align:center;">
                 <p style="margin:0 0 4px;color:#64748B;font-size:13px;">Have questions? Reach out to us</p>
-                <a href="mailto:support@infinitymiles.com" style="color:#1E3A8A;font-size:14px;font-weight:600;text-decoration:none;">support@infinitymiles.com</a>
+                <a href="mailto:${EVENT_CONFIG.supportEmail}" style="color:#1E3A8A;font-size:14px;font-weight:600;text-decoration:none;">${EVENT_CONFIG.supportEmail}</a>
               </td>
             </tr>
             <!-- Footer -->
             <tr>
               <td style="background:#F8FAFC;padding:24px 36px;text-align:center;border-top:1px solid #E2E8F0;">
-                <p style="margin:0;color:#94A3B8;font-size:12px;line-height:1.6;">Run Beyond Limits 2026 &bull; This is an automated email sent to ${participant.email}</p>
-                <p style="margin:8px 0 0;color:#94A3B8;font-size:11px;">You received this because you registered for Run Beyond Limits 2026.</p>
-                <p style="margin:6px 0 0;"><a href="mailto:support@infinitymiles.com?subject=Unsubscribe" style="color:#94A3B8;font-size:11px;text-decoration:underline;">Unsubscribe</a></p>
+                <p style="margin:0;color:#94A3B8;font-size:12px;line-height:1.6;">${EVENT_CONFIG.name} &bull; This is an automated email sent to ${participant.email}</p>
+                <p style="margin:8px 0 0;color:#94A3B8;font-size:11px;">You received this because you registered for ${EVENT_CONFIG.name}.</p>
+                <p style="margin:6px 0 0;"><a href="mailto:${EVENT_CONFIG.supportEmail}?subject=Unsubscribe" style="color:#94A3B8;font-size:11px;text-decoration:underline;">Unsubscribe</a></p>
               </td>
             </tr>
           </table>
@@ -238,17 +250,17 @@ Run Beyond Limits 2026 Team`;
 
   try {
     await transporter.sendMail({
-      from: `"Run Beyond Limits 2026" <${process.env.SMTP_FROM}>`,
+      from: `"${EVENT_CONFIG.name}" <${process.env.SMTP_FROM}>`,
       to: participant.email,
-      replyTo: "support@infinitymiles.com",
-      subject: `Run Beyond Limits 2026 — Registration Confirmed for ${participant.fullName}`,
+      replyTo: EVENT_CONFIG.supportEmail,
+      subject: `${EVENT_CONFIG.name} — Registration Confirmed for ${participant.fullName}`,
       text: plainText,
       html: htmlContent,
       headers: {
-        "List-Unsubscribe": `<mailto:support@infinitymiles.com?subject=unsubscribe>`,
+        "List-Unsubscribe": `<mailto:${EVENT_CONFIG.supportEmail}?subject=unsubscribe>`,
         "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
-        "X-Mailer": "RunBeyondLimits-Mailer/1.0",
-        "X-Campaign": "marathon-2026"
+        "X-Mailer": "InfinityMarathon-Mailer/1.0",
+        "X-Campaign": "infinity-marathon-2027"
       }
     });
     console.log(`Registration email sent to ${participant.email}`);
@@ -258,19 +270,20 @@ Run Beyond Limits 2026 Team`;
 }
 
 async function sendPaymentConfirmationEmail(participant) {
-  const raceLabel = participant.raceId === "5k" ? "5K Fun Run" : participant.raceId === "10k" ? "10K Challenge" : "Half Marathon (21K)";
+  const categoryName = raceLabel(participant.raceId);
+  const cityCfg = getCityConfig(participant.cityId);
   const BASE_URL = process.env.BASE_URL || "http://localhost:5000";
   const certLink = `${BASE_URL}/api/certificate/download/${participant._id}`;
 
-  const raceDate = "September 27, 2026";
+  const raceDate = cityCfg.date;
 
   const plainText = `Dear ${participant.fullName},
 
-Your payment is confirmed! You're officially registered for Run Beyond Limits 2026.
+Your payment is confirmed! You're officially registered for ${EVENT_CONFIG.name} (${EVENT_CONFIG.tagline}).
 
 CONFIRMED DETAILS:
-- Race Category: ${raceLabel}
-- City: ${participant.cityId}
+- Race Category: ${categoryName}
+- City: ${cityCfg.name} (${cityCfg.venue})
 - BIB Number: ${participant.bibNumber}
 - T-Shirt Size: ${participant.size}
 - Payment Status: CONFIRMED & PAID
@@ -279,14 +292,14 @@ WHAT'S NEXT:
 - Race Day: ${raceDate}
 - Arrival Time: 5:30 AM
 - What to Bring: Valid photo ID, printed BIB number
-- Wear your Run Beyond Limits 2026 T-shirt
+- Wear your ${EVENT_CONFIG.name} T-shirt
 
 Download your certificate: ${certLink}
 
-If you have any questions, please contact us at support@infinitymiles.com.
+If you have any questions, please contact us at ${EVENT_CONFIG.supportEmail}.
 
 See you on race day!
-Run Beyond Limits 2026 Team`;
+${EVENT_CONFIG.name} Team`;
 
   const htmlContent = `
     <!DOCTYPE html>
@@ -294,7 +307,7 @@ Run Beyond Limits 2026 Team`;
     <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
     <body style="margin:0;padding:0;background:#F1F5F9;font-family:'Segoe UI',Arial,sans-serif;">
       <div style="display:none;max-height:0;overflow:hidden;font-size:1px;line-height:1px;color:#F1F5F9;">
-        Payment confirmed for Run Beyond Limits 2026. Your BIB number is ${participant.bibNumber}. Download your certificate now.
+        Payment confirmed for ${EVENT_CONFIG.name}. Your BIB number is ${participant.bibNumber}. Download your certificate now.
       </div>
       <table width="100%" cellpadding="0" cellspacing="0" style="background:#F1F5F9;padding:30px 0;">
         <tr><td align="center">
@@ -308,7 +321,7 @@ Run Beyond Limits 2026 Team`;
             <!-- Header -->
             <tr>
               <td style="background:linear-gradient(135deg,#059669 0%,#1E3A8A 100%);padding:40px 36px;text-align:center;">
-                <p style="color:rgba(255,255,255,0.8);margin:0 0 6px;font-size:13px;letter-spacing:2px;text-transform:uppercase;">Run Beyond Limits 2026</p>
+                <p style="color:rgba(255,255,255,0.8);margin:0 0 6px;font-size:13px;letter-spacing:2px;text-transform:uppercase;">${EVENT_CONFIG.upperName} · ${EVENT_CONFIG.tagline}</p>
                 <h1 style="color:#ffffff;margin:0;font-size:28px;font-weight:700;">Payment Successful!</h1>
                 <p style="color:rgba(255,255,255,0.9);margin:12px 0 0;font-size:15px;">You're officially in the race</p>
               </td>
@@ -317,7 +330,7 @@ Run Beyond Limits 2026 Team`;
             <tr>
               <td style="padding:32px 36px 8px;">
                 <p style="font-size:18px;color:#0F172A;margin:0;">Dear <strong>${participant.fullName}</strong>,</p>
-                <p style="color:#475569;margin:14px 0 0;line-height:1.7;font-size:15px;">Great news! Your payment has been confirmed and your spot for <strong>${raceLabel}</strong> is now locked in. Here are your confirmed details:</p>
+                <p style="color:#475569;margin:14px 0 0;line-height:1.7;font-size:15px;">Great news! Your payment has been confirmed and your spot for <strong>${categoryName}</strong> in <strong>${cityCfg.name}</strong> is now locked in. Here are your confirmed details:</p>
               </td>
             </tr>
             <!-- Details Table -->
@@ -326,11 +339,11 @@ Run Beyond Limits 2026 Team`;
                 <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border-radius:10px;overflow:hidden;border:1px solid #E2E8F0;">
                   <tr style="background:#F8FAFC;">
                     <td style="padding:14px 18px;font-weight:600;color:#1E3A8A;width:45%;border-bottom:1px solid #E2E8F0;font-size:14px;">Race Category</td>
-                    <td style="padding:14px 18px;color:#334155;border-bottom:1px solid #E2E8F0;font-size:14px;">${raceLabel}</td>
+                    <td style="padding:14px 18px;color:#334155;border-bottom:1px solid #E2E8F0;font-size:14px;">${categoryName}</td>
                   </tr>
                   <tr>
-                    <td style="padding:14px 18px;font-weight:600;color:#1E3A8A;border-bottom:1px solid #E2E8F0;font-size:14px;">City</td>
-                    <td style="padding:14px 18px;color:#334155;border-bottom:1px solid #E2E8F0;font-size:14px;text-transform:capitalize;">${participant.cityId}</td>
+                    <td style="padding:14px 18px;font-weight:600;color:#1E3A8A;border-bottom:1px solid #E2E8F0;font-size:14px;">City &amp; Venue</td>
+                    <td style="padding:14px 18px;color:#334155;border-bottom:1px solid #E2E8F0;font-size:14px;">${cityCfg.name} (${cityCfg.venue})</td>
                   </tr>
                   <tr style="background:#F8FAFC;">
                     <td style="padding:14px 18px;font-weight:600;color:#1E3A8A;border-bottom:1px solid #E2E8F0;font-size:14px;">BIB Number</td>
@@ -378,7 +391,7 @@ Run Beyond Limits 2026 Team`;
                         </tr>
                         <tr>
                           <td style="padding:6px 0;color:#334155;font-size:14px;line-height:1.7;width:30px;vertical-align:top;">&#127917;</td>
-                          <td style="padding:6px 0;color:#334155;font-size:14px;line-height:1.7;"><strong>Wear:</strong> Your Run Beyond Limits 2026 T-shirt</td>
+                          <td style="padding:6px 0;color:#334155;font-size:14px;line-height:1.7;"><strong>Wear:</strong> Your ${EVENT_CONFIG.name} T-shirt</td>
                         </tr>
                       </table>
                     </td>
@@ -396,7 +409,7 @@ Run Beyond Limits 2026 Team`;
                     <td style="background:#EFF6FF;border-radius:10px;padding:20px 22px;border:1px solid #BFDBFE;text-align:center;">
                       <p style="margin:0 0 6px;color:#1E3A8A;font-size:14px;font-weight:600;">Need Help?</p>
                       <p style="margin:0;color:#475569;font-size:13px;line-height:1.6;">Contact our support team anytime</p>
-                      <a href="mailto:support@infinitymiles.com" style="display:inline-block;margin-top:10px;color:#1E3A8A;font-size:14px;font-weight:600;text-decoration:none;">support@infinitymiles.com</a>
+                      <a href="mailto:${EVENT_CONFIG.supportEmail}" style="display:inline-block;margin-top:10px;color:#1E3A8A;font-size:14px;font-weight:600;text-decoration:none;">${EVENT_CONFIG.supportEmail}</a>
                     </td>
                   </tr>
                 </table>
@@ -405,9 +418,9 @@ Run Beyond Limits 2026 Team`;
             <!-- Footer -->
             <tr>
               <td style="background:#F8FAFC;padding:24px 36px;text-align:center;border-top:1px solid #E2E8F0;">
-                <p style="margin:0;color:#94A3B8;font-size:12px;line-height:1.6;">Run Beyond Limits 2026 &bull; This is an automated email sent to ${participant.email}</p>
-                <p style="margin:8px 0 0;color:#94A3B8;font-size:11px;">You received this because you registered and paid for Run Beyond Limits 2026.</p>
-                <p style="margin:6px 0 0;"><a href="mailto:support@infinitymiles.com?subject=Unsubscribe" style="color:#94A3B8;font-size:11px;text-decoration:underline;">Unsubscribe</a></p>
+                <p style="margin:0;color:#94A3B8;font-size:12px;line-height:1.6;">${EVENT_CONFIG.name} &bull; This is an automated email sent to ${participant.email}</p>
+                <p style="margin:8px 0 0;color:#94A3B8;font-size:11px;">You received this because you registered and paid for ${EVENT_CONFIG.name}.</p>
+                <p style="margin:6px 0 0;"><a href="mailto:${EVENT_CONFIG.supportEmail}?subject=Unsubscribe" style="color:#94A3B8;font-size:11px;text-decoration:underline;">Unsubscribe</a></p>
               </td>
             </tr>
           </table>
@@ -418,17 +431,17 @@ Run Beyond Limits 2026 Team`;
 
   try {
     await transporter.sendMail({
-      from: `"Run Beyond Limits 2026" <${process.env.SMTP_FROM}>`,
+      from: `"${EVENT_CONFIG.name}" <${process.env.SMTP_FROM}>`,
       to: participant.email,
-      replyTo: "support@infinitymiles.com",
-      subject: `Run Beyond Limits 2026 — Payment Confirmed! Your BIB is ${participant.bibNumber}`,
+      replyTo: EVENT_CONFIG.supportEmail,
+      subject: `${EVENT_CONFIG.name} — Payment Confirmed! Your BIB is ${participant.bibNumber}`,
       text: plainText,
       html: htmlContent,
       headers: {
-        "List-Unsubscribe": `<mailto:support@infinitymiles.com?subject=unsubscribe>`,
+        "List-Unsubscribe": `<mailto:${EVENT_CONFIG.supportEmail}?subject=unsubscribe>`,
         "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
-        "X-Mailer": "RunBeyondLimits-Mailer/1.0",
-        "X-Campaign": "marathon-2026-payment"
+        "X-Mailer": "InfinityMarathon-Mailer/1.0",
+        "X-Campaign": "infinity-marathon-2027-payment"
       }
     });
     console.log(`Payment confirmation email sent to ${participant.email} with BIB: ${participant.bibNumber}`);
@@ -493,15 +506,6 @@ async function sendWhatsApp(phone, message) {
   return sendWhatsAppMessage(phone, message);
 }
 
-function getVenue(cityId) {
-  const venues = {
-    chennai: "Marina Beach Outer Promenade, Chennai",
-    bengaluru: "Kanteerava Stadium, Bengaluru",
-    salem: "Mahatma Gandhi Stadium, Salem"
-  };
-  return venues[cityId.toLowerCase()] || "Main Marathon Venue";
-}
-
 // Send WhatsApp Notification (rich formatted message via the WhatsApp service)
 function sendWhatsAppNotification(participant) {
   sendRegistrationWhatsApp(participant).catch((err) =>
@@ -558,13 +562,13 @@ function generateCertificatePDF(participant) {
       // Header Logo/Text
       doc.fillColor("#1E3A8A")
         .font("Helvetica-Bold")
-        .fontSize(36)
-        .text("RUN BEYOND LIMITS 2026", 0, 80, { align: "center" });
+        .fontSize(34)
+        .text(EVENT_CONFIG.upperName, 0, 72, { align: "center" });
 
       doc.fillColor("#F97316")
-        .font("Helvetica")
-        .fontSize(14)
-        .text("OFFICIAL FINISHER CERTIFICATE", 0, 130, { align: "center", characterSpacing: 2 });
+        .font("Helvetica-Bold")
+        .fontSize(13)
+        .text("RUN BEYOND LIMITS · OFFICIAL FINISHER CERTIFICATE", 0, 120, { align: "center", characterSpacing: 2 });
 
       // Middle text
       doc.fillColor("#334155")
@@ -579,7 +583,8 @@ function generateCertificatePDF(participant) {
         .text(participant.fullName.toUpperCase(), 0, 230, { align: "center" });
 
       // Race completion details
-      let raceDetailsText = `For successfully completing the ${participant.raceId.toUpperCase()} category in the Run Beyond Limits 2026 Marathon held at ${getVenue(participant.cityId)}`;
+      const certCityCfg = getCityConfig(participant.cityId);
+      let raceDetailsText = `For successfully completing the ${participant.raceId.toUpperCase()} category in ${EVENT_CONFIG.name} held at ${certCityCfg.venue}`;
       if (participant.raceStatus === "Finished" && participant.finishTime) {
         raceDetailsText += ` with an official finish time of ${participant.finishTime}.`;
       } else {
@@ -599,7 +604,7 @@ function generateCertificatePDF(participant) {
       doc.fillColor("#1E3A8A")
         .font("Helvetica-Bold")
         .fontSize(14)
-        .text("DATE: SEPTEMBER 27, 2026", width - 280, 380, { align: "right" });
+        .text(`DATE: ${certCityCfg.date.toUpperCase()}`, width - 380, 380, { width: 280, align: "right" });
 
       // Signatures
       doc.save();
@@ -679,20 +684,21 @@ function generateTicketPDF(participant) {
         .fill();
 
       // Header Texts
+      const ticketCityCfg = getCityConfig(participant.cityId);
       doc.fillColor("#FFFFFF")
         .font("Helvetica-Bold")
         .fontSize(20)
-        .text("RUN BEYOND LIMITS 2026", margin + 20, margin + 18);
+        .text(EVENT_CONFIG.upperName, margin + 20, margin + 18);
 
       doc.fillColor("#E9387C")
         .font("Helvetica-Bold")
         .fontSize(10)
-        .text("OFFICIAL ENTRY PASS & KIT DISTRIBUTION VOUCHER", margin + 20, margin + 44, { characterSpacing: 1 });
+        .text("RUN BEYOND LIMITS · OFFICIAL ENTRY PASS & KIT VOUCHER", margin + 20, margin + 44, { characterSpacing: 1 });
 
       doc.fillColor("#94A3B8")
         .font("Helvetica")
         .fontSize(8.5)
-        .text("Race Day: Sunday, September 27, 2026 · Flag-off: 5:30 AM · Assembly: 5:00 AM", margin + 20, margin + 60);
+        .text(`Race Day: ${ticketCityCfg.date} · Flag-off: ${ticketCityCfg.flagOff} · Assembly: 5:00 AM`, margin + 20, margin + 60);
       doc.restore();
 
       // Runner Overview Box
@@ -852,10 +858,10 @@ function generateTicketPDF(participant) {
         .text("IMPORTANT EXPO & RACE DAY INSTRUCTIONS:", margin + 15, notesY);
 
       const instructions = [
-        "1. Bib & T-Shirt Expo: Collect your kit on Friday Sept 25 & Saturday Sept 26, 2026 (10:00 AM – 7:00 PM) at your registered city venue.",
+        `1. Bib & T-Shirt Expo: Collect your kit on ${ticketCityCfg.expoDates} (10:00 AM – 7:00 PM) at ${ticketCityCfg.venue}.`,
         "2. Mandatory Verification: Carry an original Government Photo ID (Aadhaar, Passport, DL) matching runner name along with this pass.",
         "3. Strictly Non-Transferable: Bib transfer or selling is strictly illegal and results in immediate disqualification.",
-        "4. No Race Day Kit Pickup: Kits will NOT be distributed on race morning (Sept 27). Please collect during the Expo days."
+        `4. No Race Day Kit Pickup: Kits will NOT be distributed on race morning (${ticketCityCfg.shortDate}). Please collect during the Expo days.`
       ];
 
       let noteY = notesY + 14;
@@ -872,7 +878,7 @@ function generateTicketPDF(participant) {
       doc.fillColor("#94A3B8")
         .font("Helvetica")
         .fontSize(7.5)
-        .text(`Run Beyond Limits 2026 · Support: info@infinitymiles.com · Helpline: +91 12345 67890 · Order ID: ${participant.razorpayOrderId || "Confirmed"}`, margin, height - margin - 20, { width: cardW, align: "center" });
+        .text(`${EVENT_CONFIG.name} · Support: ${EVENT_CONFIG.infoEmail} · Helpline: ${EVENT_CONFIG.helpline} · Order ID: ${participant.razorpayOrderId || "Confirmed"}`, margin, height - margin - 20, { width: cardW, align: "center" });
 
       doc.end();
     } catch (err) {
@@ -884,16 +890,15 @@ function generateTicketPDF(participant) {
 // --- PRE-EVENT & POST-EVENT NOTIFICATION SENDERS ---
 
 async function send7DayReminder(participant) {
-  const raceLabel = participant.raceId === "5k" ? "5K Fun Run" : participant.raceId === "10k" ? "10K Challenge" : "Half Marathon (21K)";
-  const venue = getVenue(participant.cityId);
-  const marathonDateStr = process.env.MARATHON_DATE || "2026-09-27T05:30:00+05:30";
-  const marathonDate = new Date(marathonDateStr);
-  const dateStr = marathonDate.toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" });
+  const categoryName = raceLabel(participant.raceId);
+  const cityCfg = getCityConfig(participant.cityId);
+  const venue = cityCfg.venue;
+  const dateStr = cityCfg.date;
 
-  const waMessage = `Hello ${participant.fullName}! 🏃‍♂️ Only *7 Days Left* until Run Beyond Limits 2026!\n\n📅 Date: ${dateStr}\n⏰ Reporting: 5:00 AM IST\n📍 Venue: ${venue}\n\nGet plenty of rest, hydrate well, and prepare your gear. We'll see you at the starting line! 💪`;
+  const waMessage = `Hello ${participant.fullName}! 🏃‍♂️ Only *7 Days Left* until ${EVENT_CONFIG.name}!\n\n📅 Date: ${dateStr}\n⏰ Reporting: 5:00 AM IST\n📍 Venue: ${venue}\n\nGet plenty of rest, hydrate well, and prepare your gear. We'll see you at the starting line! 💪`;
   sendWhatsApp(participant.phone, waMessage);
 
-  const smsMessage = `Hi ${participant.fullName}, only 7 days to go for Run Beyond Limits 2026! Reporting time: 5:00 AM at ${venue}. Get ready!`;
+  const smsMessage = `Hi ${participant.fullName}, only 7 days to go for ${EVENT_CONFIG.name}! Reporting time: 5:00 AM at ${venue}. Get ready!`;
   sendSMS(participant.phone, smsMessage);
 
   const htmlContent = `
@@ -905,7 +910,7 @@ async function send7DayReminder(participant) {
           <table width="600" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
             <tr>
               <td style="background:linear-gradient(135deg,#1E3A8A 0%,#F97316 100%);padding:40px 36px;text-align:center;color:#ffffff;">
-                <p style="margin:0;font-size:13px;letter-spacing:2px;text-transform:uppercase;">Run Beyond Limits 2026</p>
+                <p style="margin:0;font-size:13px;letter-spacing:2px;text-transform:uppercase;">${EVENT_CONFIG.upperName}</p>
                 <h1 style="margin:10px 0 0;font-size:28px;">7 Days to Go! 🏃‍♂️</h1>
               </td>
             </tr>
@@ -917,7 +922,7 @@ async function send7DayReminder(participant) {
                   <tr style="background:#F8FAFC;"><td style="padding:12px;font-weight:bold;width:30%;">Date</td><td style="padding:12px;">${dateStr}</td></tr>
                   <tr><td style="padding:12px;font-weight:bold;">Reporting</td><td style="padding:12px;">5:00 AM IST sharp</td></tr>
                   <tr style="background:#F8FAFC;"><td style="padding:12px;font-weight:bold;">Venue</td><td style="padding:12px;">${venue}</td></tr>
-                  <tr><td style="padding:12px;font-weight:bold;">Category</td><td style="padding:12px;">${raceLabel}</td></tr>
+                  <tr><td style="padding:12px;font-weight:bold;">Category</td><td style="padding:12px;">${categoryName}</td></tr>
                 </table>
                 <p style="color:#1E3A8A;font-weight:bold;margin-top:20px;">💡 Pro Runner Tips for this week:</p>
                 <ul style="color:#475569;font-size:14px;line-height:1.6;">
@@ -929,7 +934,7 @@ async function send7DayReminder(participant) {
             </tr>
             <tr>
               <td style="background:#F8FAFC;padding:24px 36px;text-align:center;border-top:1px solid #E2E8F0;font-size:12px;color:#94A3B8;">
-                Run Beyond Limits 2026 &bull; support@infinitymiles.com
+                ${EVENT_CONFIG.name} &bull; ${EVENT_CONFIG.supportEmail}
               </td>
             </tr>
           </table>
@@ -941,9 +946,9 @@ async function send7DayReminder(participant) {
 
   try {
     await transporter.sendMail({
-      from: `"Run Beyond Limits 2026" <${process.env.SMTP_FROM}>`,
+      from: `"${EVENT_CONFIG.name}" <${process.env.SMTP_FROM}>`,
       to: participant.email,
-      subject: `Run Beyond Limits 2026 — 7 Days To Go! 🏃‍♂️`,
+      subject: `${EVENT_CONFIG.name} — 7 Days To Go! 🏃‍♂️`,
       html: htmlContent
     });
     console.log(`7-day reminder email sent to ${participant.email}`);
@@ -953,13 +958,12 @@ async function send7DayReminder(participant) {
 }
 
 async function send3DayReminder(participant) {
-  const raceLabel = participant.raceId === "5k" ? "5K Fun Run" : participant.raceId === "10k" ? "10K Challenge" : "Half Marathon (21K)";
   const venue = getVenue(participant.cityId);
 
-  const waMessage = `Hello ${participant.fullName}! ⏳ Just *3 Days Left* until Run Beyond Limits 2026!\n\n💼 Check-in opens at 5:00 AM IST.\n🆔 Required Documents: Please bring a valid photo ID card for check-in verification.\n\nSet your target, double-check your gear, and let's make it count! 👟`;
+  const waMessage = `Hello ${participant.fullName}! ⏳ Just *3 Days Left* until ${EVENT_CONFIG.name} at ${venue}!\n\n💼 Check-in opens at 5:00 AM IST.\n🆔 Required Documents: Please bring a valid photo ID card for check-in verification.\n\nSet your target, double-check your gear, and let's make it count! 👟`;
   sendWhatsApp(participant.phone, waMessage);
 
-  const smsMessage = `Hi ${participant.fullName}, the countdown is on! 3 days to Run Beyond Limits 2026. Remember to bring your original ID card for check-in verification.`;
+  const smsMessage = `Hi ${participant.fullName}, the countdown is on! 3 days to ${EVENT_CONFIG.name}. Remember to bring your original ID card for check-in verification.`;
   sendSMS(participant.phone, smsMessage);
 
   const htmlContent = `
@@ -971,7 +975,7 @@ async function send3DayReminder(participant) {
           <table width="600" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
             <tr>
               <td style="background:linear-gradient(135deg,#1E3A8A 0%,#F97316 100%);padding:40px 36px;text-align:center;color:#ffffff;">
-                <p style="margin:0;font-size:13px;letter-spacing:2px;text-transform:uppercase;">Run Beyond Limits 2026</p>
+                <p style="margin:0;font-size:13px;letter-spacing:2px;text-transform:uppercase;">${EVENT_CONFIG.upperName}</p>
                 <h1 style="margin:10px 0 0;font-size:28px;">3 Days Left! ⏳</h1>
               </td>
             </tr>
@@ -995,7 +999,7 @@ async function send3DayReminder(participant) {
             </tr>
             <tr>
               <td style="background:#F8FAFC;padding:24px 36px;text-align:center;border-top:1px solid #E2E8F0;font-size:12px;color:#94A3B8;">
-                Run Beyond Limits 2026 &bull; support@infinitymiles.com
+                ${EVENT_CONFIG.name} &bull; ${EVENT_CONFIG.supportEmail}
               </td>
             </tr>
           </table>
@@ -1007,9 +1011,9 @@ async function send3DayReminder(participant) {
 
   try {
     await transporter.sendMail({
-      from: `"Run Beyond Limits 2026" <${process.env.SMTP_FROM}>`,
+      from: `"${EVENT_CONFIG.name}" <${process.env.SMTP_FROM}>`,
       to: participant.email,
-      subject: `Run Beyond Limits 2026 — Countdown: 3 Days Left! ⏳`,
+      subject: `${EVENT_CONFIG.name} — Countdown: 3 Days Left! ⏳`,
       html: htmlContent
     });
     console.log(`3-day reminder email sent to ${participant.email}`);
@@ -1021,10 +1025,10 @@ async function send3DayReminder(participant) {
 async function send24HourReminder(participant) {
   const venue = getVenue(participant.cityId);
 
-  const waMessage = `Final reminder, ${participant.fullName}! 📢 Run Beyond Limits 2026 starts tomorrow!\n\n📍 Venue: ${venue}\n⏰ Reporting: 5:00 AM IST sharp\n📞 Emergency Support: +91 98765 43210\n\nEnsure your BIB is pinned, rest well tonight, and bring your energy! See you at the starting line! 🏁`;
+  const waMessage = `Final reminder, ${participant.fullName}! 📢 ${EVENT_CONFIG.name} starts tomorrow!\n\n📍 Venue: ${venue}\n⏰ Reporting: 5:00 AM IST sharp\n📞 Emergency Support: +91 98765 43210\n\nEnsure your BIB is pinned, rest well tonight, and bring your energy! See you at the starting line! 🏁`;
   sendWhatsApp(participant.phone, waMessage);
 
-  const smsMessage = `Final call, ${participant.fullName}! Run Beyond Limits 2026 starts in 24 hours. Venue: ${venue} at 5:00 AM. Emergency contact: +91 98765 43210.`;
+  const smsMessage = `Final call, ${participant.fullName}! ${EVENT_CONFIG.name} starts in 24 hours. Venue: ${venue} at 5:00 AM. Emergency contact: +91 98765 43210.`;
   sendSMS(participant.phone, smsMessage);
 
   const htmlContent = `
@@ -1036,7 +1040,7 @@ async function send24HourReminder(participant) {
           <table width="600" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
             <tr>
               <td style="background:linear-gradient(135deg,#1E3A8A 0%,#F97316 100%);padding:40px 36px;text-align:center;color:#ffffff;">
-                <p style="margin:0;font-size:13px;letter-spacing:2px;text-transform:uppercase;">Run Beyond Limits 2026</p>
+                <p style="margin:0;font-size:13px;letter-spacing:2px;text-transform:uppercase;">${EVENT_CONFIG.upperName}</p>
                 <h1 style="margin:10px 0 0;font-size:28px;">Tomorrow is the Day! 🏁</h1>
               </td>
             </tr>
@@ -1059,7 +1063,7 @@ async function send24HourReminder(participant) {
             </tr>
             <tr>
               <td style="background:#F8FAFC;padding:24px 36px;text-align:center;border-top:1px solid #E2E8F0;font-size:12px;color:#94A3B8;">
-                Run Beyond Limits 2026 &bull; support@infinitymiles.com
+                ${EVENT_CONFIG.name} &bull; ${EVENT_CONFIG.supportEmail}
               </td>
             </tr>
           </table>
@@ -1071,9 +1075,9 @@ async function send24HourReminder(participant) {
 
   try {
     await transporter.sendMail({
-      from: `"Run Beyond Limits 2026" <${process.env.SMTP_FROM}>`,
+      from: `"${EVENT_CONFIG.name}" <${process.env.SMTP_FROM}>`,
       to: participant.email,
-      subject: `Run Beyond Limits 2026 — Tomorrow is the Day! 🏁`,
+      subject: `${EVENT_CONFIG.name} — Tomorrow is the Day! 🏁`,
       html: htmlContent
     });
     console.log(`24-hour reminder email sent to ${participant.email}`);
@@ -1083,10 +1087,10 @@ async function send24HourReminder(participant) {
 }
 
 async function sendThankYouNotification(participant) {
-  const waMessage = `Thank you, ${participant.fullName}! 🎉 You successfully completed the Run Beyond Limits 2026 Marathon! We appreciate your passion, energy, and sportsmanship. We hope to see you in our future events! 🏃‍♀️✨`;
+  const waMessage = `Thank you, ${participant.fullName}! 🎉 You successfully completed ${EVENT_CONFIG.name}! We appreciate your passion, energy, and sportsmanship. We hope to see you in our future events! 🏃‍♀️✨`;
   sendWhatsApp(participant.phone, waMessage);
 
-  const smsMessage = `Thank you ${participant.fullName} for running in Run Beyond Limits 2026! You did amazing. Stay tuned for certificate distribution.`;
+  const smsMessage = `Thank you ${participant.fullName} for running in ${EVENT_CONFIG.name}! You did amazing. Stay tuned for certificate distribution.`;
   sendSMS(participant.phone, smsMessage);
 
   const htmlContent = `
@@ -1098,7 +1102,7 @@ async function sendThankYouNotification(participant) {
           <table width="600" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
             <tr>
               <td style="background:linear-gradient(135deg,#1E3A8A 0%,#F97316 100%);padding:40px 36px;text-align:center;color:#ffffff;">
-                <p style="margin:0;font-size:13px;letter-spacing:2px;text-transform:uppercase;">Run Beyond Limits 2026</p>
+                <p style="margin:0;font-size:13px;letter-spacing:2px;text-transform:uppercase;">${EVENT_CONFIG.upperName}</p>
                 <h1 style="margin:10px 0 0;font-size:28px;">Thank You, Runners! 🎉</h1>
               </td>
             </tr>
@@ -1106,12 +1110,12 @@ async function sendThankYouNotification(participant) {
               <td style="padding:32px 36px;">
                 <p style="font-size:16px;color:#0F172A;">Dear <strong>${participant.fullName}</strong>,</p>
                 <p style="color:#475569;font-size:15px;line-height:1.6;">Congratulations on completing the marathon! We are incredibly inspired by your strength, determination, and community spirit.</p>
-                <p style="color:#475569;font-size:15px;line-height:1.6;">Thank you for making Run Beyond Limits 2026 an unforgettable experience. Stay tuned for details about our future events and runner forums!</p>
+                <p style="color:#475569;font-size:15px;line-height:1.6;">Thank you for making ${EVENT_CONFIG.name} an unforgettable experience. Stay tuned for details about our future events and runner forums!</p>
               </td>
             </tr>
             <tr>
               <td style="background:#F8FAFC;padding:24px 36px;text-align:center;border-top:1px solid #E2E8F0;font-size:12px;color:#94A3B8;">
-                Run Beyond Limits 2026 &bull; support@infinitymiles.com
+                ${EVENT_CONFIG.name} &bull; ${EVENT_CONFIG.supportEmail}
               </td>
             </tr>
           </table>
@@ -1123,9 +1127,9 @@ async function sendThankYouNotification(participant) {
 
   try {
     await transporter.sendMail({
-      from: `"Run Beyond Limits 2026" <${process.env.SMTP_FROM}>`,
+      from: `"${EVENT_CONFIG.name}" <${process.env.SMTP_FROM}>`,
       to: participant.email,
-      subject: `Run Beyond Limits 2026 — Thank You for Participating! 🎉`,
+      subject: `${EVENT_CONFIG.name} — Thank You for Participating! 🎉`,
       html: htmlContent
     });
     console.log(`Thank-you email sent to ${participant.email}`);
@@ -1138,10 +1142,10 @@ async function sendCertificateNotification(participant) {
   const BASE_URL = process.env.BASE_URL || "http://localhost:5000";
   const downloadLink = `${BASE_URL}/api/certificate/download/${participant._id}`;
 
-  const waMessage = `Hello ${participant.fullName}! 🏆 Your official participation certificate is ready for download!\n\nDownload here: ${downloadLink}\n\nCongratulations on running beyond your limits! 🎖️`;
+  const waMessage = `Hello ${participant.fullName}! 🏆 Your official participation certificate for ${EVENT_CONFIG.name} is ready for download!\n\nDownload here: ${downloadLink}\n\nCongratulations on running beyond your limits! 🎖️`;
   sendWhatsApp(participant.phone, waMessage);
 
-  const smsMessage = `Hi ${participant.fullName}, download your official Run Beyond Limits 2026 certificate here: ${downloadLink}`;
+  const smsMessage = `Hi ${participant.fullName}, download your official ${EVENT_CONFIG.name} certificate here: ${downloadLink}`;
   sendSMS(participant.phone, smsMessage);
 
   const htmlContent = `
@@ -1153,7 +1157,7 @@ async function sendCertificateNotification(participant) {
           <table width="600" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
             <tr>
               <td style="background:linear-gradient(135deg,#1E3A8A 0%,#F97316 100%);padding:40px 36px;text-align:center;color:#ffffff;">
-                <p style="margin:0;font-size:13px;letter-spacing:2px;text-transform:uppercase;">Run Beyond Limits 2026</p>
+                <p style="margin:0;font-size:13px;letter-spacing:2px;text-transform:uppercase;">${EVENT_CONFIG.upperName}</p>
                 <h1 style="margin:10px 0 0;font-size:28px;">Your Finisher Certificate 🏆</h1>
               </td>
             </tr>
@@ -1169,7 +1173,7 @@ async function sendCertificateNotification(participant) {
             </tr>
             <tr>
               <td style="background:#F8FAFC;padding:24px 36px;text-align:center;border-top:1px solid #E2E8F0;font-size:12px;color:#94A3B8;">
-                Run Beyond Limits 2026 &bull; support@infinitymiles.com
+                ${EVENT_CONFIG.name} &bull; ${EVENT_CONFIG.supportEmail}
               </td>
             </tr>
           </table>
@@ -1183,9 +1187,9 @@ async function sendCertificateNotification(participant) {
     const pdfBuffer = await generateCertificatePDF(participant);
 
     await transporter.sendMail({
-      from: `"Run Beyond Limits 2026" <${process.env.SMTP_FROM}>`,
+      from: `"${EVENT_CONFIG.name}" <${process.env.SMTP_FROM}>`,
       to: participant.email,
-      subject: `Run Beyond Limits 2026 — Your Finisher Certificate! 🏆`,
+      subject: `${EVENT_CONFIG.name} — Your Finisher Certificate! 🏆`,
       html: htmlContent,
       attachments: [
         {
@@ -1200,82 +1204,46 @@ async function sendCertificateNotification(participant) {
   }
 }
 
-// --- AUTOMATED SCHEDULER ---
+// --- AUTOMATED SCHEDULER (City-wise race calendar) ---
 
 async function runNotificationScheduler() {
-  const marathonDateStr = process.env.MARATHON_DATE || "2026-09-27T05:30:00+05:30";
-  const marathonDate = new Date(marathonDateStr);
   const now = new Date();
-  const timeDiffMs = marathonDate.getTime() - now.getTime();
-  
   const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
   const threeDaysMs = 3 * 24 * 60 * 60 * 1000;
   const twentyFourHoursMs = 24 * 60 * 60 * 1000;
 
-  console.log(`[Scheduler] Checking notifications at ${now.toISOString()}. Time until marathon: ${(timeDiffMs / (1000 * 60 * 60 * 24)).toFixed(2)} days.`);
+  console.log(`[Scheduler] Checking city-wise notifications at ${now.toISOString()}.`);
 
   try {
-    // 1. Pre-event notifications (7 days, 3 days, 24 hours before)
-    if (timeDiffMs > 0) {
-      // 7-day reminder
-      if (timeDiffMs <= sevenDaysMs) {
-        const participants = await Participant.find({ "sentNotifications.sevenDaysBefore": false });
-        if (participants.length > 0) {
-          console.log(`[Scheduler] Found ${participants.length} participants for 7-day reminder.`);
-          for (const p of participants) {
-            await send7DayReminder(p);
-            p.sentNotifications.sevenDaysBefore = true;
-            await p.save();
-          }
-        }
-      }
-      
-      // 3-day reminder
-      if (timeDiffMs <= threeDaysMs) {
-        const participants = await Participant.find({ "sentNotifications.threeDaysBefore": false });
-        if (participants.length > 0) {
-          console.log(`[Scheduler] Found ${participants.length} participants for 3-day reminder.`);
-          for (const p of participants) {
-            await send3DayReminder(p);
-            p.sentNotifications.threeDaysBefore = true;
-            await p.save();
-          }
-        }
-      }
+    const allParticipants = await Participant.find();
+    for (const p of allParticipants) {
+      const cityDateStr = process.env.MARATHON_DATE || getCityDateISO(p.cityId);
+      const cityDate = new Date(cityDateStr);
+      const timeDiffMs = cityDate.getTime() - now.getTime();
 
-      // 24-hour reminder
-      if (timeDiffMs <= twentyFourHoursMs) {
-        const participants = await Participant.find({ "sentNotifications.twentyFourHoursBefore": false });
-        if (participants.length > 0) {
-          console.log(`[Scheduler] Found ${participants.length} participants for 24-hour reminder.`);
-          for (const p of participants) {
-            await send24HourReminder(p);
-            p.sentNotifications.twentyFourHoursBefore = true;
-            await p.save();
-          }
+      if (timeDiffMs > 0) {
+        if (timeDiffMs <= sevenDaysMs && !p.sentNotifications?.sevenDaysBefore) {
+          await send7DayReminder(p);
+          p.sentNotifications.sevenDaysBefore = true;
+          await p.save();
         }
-      }
-    } else {
-      // 2. Post-event notifications (after event completion)
-      // Thank You Message
-      const thankYouParticipants = await Participant.find({ "sentNotifications.thankYou": false });
-      if (thankYouParticipants.length > 0) {
-        console.log(`[Scheduler] Found ${thankYouParticipants.length} participants for post-event thank you message.`);
-        for (const p of thankYouParticipants) {
+        if (timeDiffMs <= threeDaysMs && !p.sentNotifications?.threeDaysBefore) {
+          await send3DayReminder(p);
+          p.sentNotifications.threeDaysBefore = true;
+          await p.save();
+        }
+        if (timeDiffMs <= twentyFourHoursMs && !p.sentNotifications?.twentyFourHoursBefore) {
+          await send24HourReminder(p);
+          p.sentNotifications.twentyFourHoursBefore = true;
+          await p.save();
+        }
+      } else {
+        if (!p.sentNotifications?.thankYou) {
           await sendThankYouNotification(p);
           p.sentNotifications.thankYou = true;
           await p.save();
         }
-      }
-
-      // Certificate Delivery (Paid participants only)
-      const certificateParticipants = await Participant.find({ 
-        paymentStatus: "Paid", 
-        "sentNotifications.certificate": false 
-      });
-      if (certificateParticipants.length > 0) {
-        console.log(`[Scheduler] Found ${certificateParticipants.length} paid participants for certificate distribution.`);
-        for (const p of certificateParticipants) {
+        if (p.paymentStatus === "Paid" && !p.sentNotifications?.certificate) {
           await sendCertificateNotification(p);
           p.sentNotifications.certificate = true;
           await p.save();
@@ -1669,7 +1637,10 @@ const authenticateAdmin = (req, res, next) => {
 app.get("/api/health", (req, res) => {
   res.json({
     ok: true,
-    site: "Run Beyond Limits 2026",
+    site: EVENT_CONFIG.name,
+    tagline: EVENT_CONFIG.tagline,
+    cities: CITIES.length,
+    races: RACE_IDS,
     time: new Date().toISOString(),
     uptimeSec: Math.round(process.uptime()),
     // Diagnostics: how the backend sees the client (tunnel = CF-Connecting-IP).
@@ -1740,14 +1711,14 @@ function verifyPageHtml(p) {
 
   const head = `
     <div class="head">
-      <h1>RUN BEYOND LIMITS 2026</h1>
-      <p>🏁 Registration Booth — Runner Verification</p>
+      <h1>${EVENT_CONFIG.upperName}</h1>
+      <p>🏁 ${EVENT_CONFIG.tagline} — Runner Verification</p>
     </div>`;
 
   if (!p) {
     return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Invalid QR — Run Beyond Limits 2026</title><style>${style}</style></head><body>
+<title>Invalid QR — ${EVENT_CONFIG.name}</title><style>${style}</style></head><body>
 <div class="card">${head}
   <div class="invalid">
     <div class="big">⚠️</div>
@@ -1773,7 +1744,7 @@ function verifyPageHtml(p) {
 
   return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Verify Runner — Run Beyond Limits 2026</title><style>${style}</style></head><body>
+<title>Verify Runner — ${EVENT_CONFIG.name}</title><style>${style}</style></head><body>
 <div class="card">${head}
   <div class="body">
     <div id="pendingBox">
@@ -2074,9 +2045,9 @@ function scannerPageHtml() {
 
   return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Scanner Mode — Run Beyond Limits 2026</title><style>${style}</style></head><body>
+<title>Scanner Mode — ${EVENT_CONFIG.name}</title><style>${style}</style></head><body>
 <div class="head">
-  <h1>📷 SCANNER MODE — RUN BEYOND LIMITS 2026</h1>
+  <h1>📷 SCANNER MODE — ${EVENT_CONFIG.upperName}</h1>
   <p>Point the camera at a runner's QR — details appear instantly. Keep this page open all day.</p>
 </div>
 <div class="wrap">
@@ -2235,7 +2206,7 @@ function scannerPageHtml() {
     if (busy) return;
     var s = String(text || "");
     var m = s.match(/code=([a-f0-9]{32})/i) || s.match(/([a-f0-9]{32})/i);
-    if (!m) return invalidCard("Not a runner QR", "This QR is not from Run Beyond Limits 2026.");
+    if (!m) return invalidCard("Not a runner QR", "This QR is not from " + ${JSON.stringify(EVENT_CONFIG.name)} + ".");
     var code = m[1], now = Date.now();
     if (code === lastCode && now - lastAt < 12000) return; // ignore repeats while runner stands there
     lastCode = code; lastAt = now; currentCode = code;
@@ -2315,14 +2286,21 @@ const registerSchema = z.object({
   state: z.string().min(1, "State is required"),
   pincode: z.string().min(1, "Pincode is required"),
   size: z.enum(["XS", "S", "M", "L", "XL", "XXL"]),
-  cityId: z.enum(["chennai", "bengaluru", "salem"]),
-  raceId: z.enum(["5k", "10k", "21k"]),
+  cityId: z.enum(CITY_IDS),
+  raceId: z.enum(RACE_IDS),
+  emergencyContactName: z.string().optional(),
+  medicalDeclaration: z.string().optional(),
 });
 
 // Public: Participant Registration
 app.post("/api/register", registerLimiter, async (req, res) => {
   try {
-    const validatedData = registerSchema.parse(req.body);
+    const body = {
+      ...(req.body || {}),
+      cityId: String(req.body?.cityId || "").trim().toLowerCase(),
+      raceId: String(req.body?.raceId || "").trim().toLowerCase(),
+    };
+    const validatedData = registerSchema.parse(body);
     const newParticipant = new Participant(validatedData);
     await newParticipant.save();
 
@@ -2337,11 +2315,10 @@ app.post("/api/register", registerLimiter, async (req, res) => {
           save: (p) => p.save(),
           sendEmail: sendRegistrationEmail,
           sendSms: (p) => {
-            const raceLabel =
-              p.raceId === "5k" ? "5K Fun Run" : p.raceId === "10k" ? "10K Challenge" : "Half Marathon (21K)";
+            const categoryName = raceLabel(p.raceId);
             return sendSMS(
               p.phone,
-              `Hi ${p.fullName}, your registration for Run Beyond Limits 2026 (${raceLabel}) is confirmed! ` +
+              `Hi ${p.fullName}, your registration for ${EVENT_CONFIG.name} (${cityLabel(p.cityId)} · ${categoryName}) is confirmed! ` +
                 `Your BIB number and certificate will be issued once payment is received.`
             );
           },
@@ -2421,14 +2398,6 @@ app.get("/api/admin/participants", authenticateAdmin, async (req, res) => {
 /* without them every endpoint reports "not configured" cleanly.       */
 /* ------------------------------------------------------------------ */
 
-// Keep in sync with frontend/src/data/marathon.ts (RACES[].fee).
-const RACE_FEES_INR = { "21k": 999, "10k": 799, "5k": 499 };
-const RACE_CAPACITIES = {
-  "21k": { name: "21.1 KM Half Marathon", type: "Timed Run", fee: 999, totalSlots: 1000 },
-  "10k": { name: "10 KM Run", type: "Timed Run", fee: 799, totalSlots: 1500 },
-  "5k": { name: "5 KM Fun Run", type: "Non Timed Run", fee: 499, totalSlots: 2000 },
-};
-
 const paymentLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 60,
@@ -2455,8 +2424,8 @@ async function ensureBibOnPaid(participant) {
     raceId: participant.raceId,
     paymentStatus: "Paid",
   });
-  const cityPrefix = (participant.cityId || "che").substring(0, 3).toUpperCase();
-  const racePrefix = (participant.raceId || "10k").toUpperCase();
+  const cityPrefix = getCityConfig(participant.cityId).bibPrefix;
+  const racePrefix = (participant.raceId || "5k").toUpperCase();
   const nextNum = String(count + 1).padStart(4, "0");
   participant.bibNumber = `${cityPrefix}-${racePrefix}-${nextNum}`;
 }
@@ -2474,7 +2443,7 @@ async function applyPaymentConfirmedEffects(participant) {
     sendPaymentConfirmationEmail(participant);
     sendSMS(
       participant.phone,
-      `Hi ${participant.fullName}, your payment for Run Beyond Limits 2026 is confirmed! ` +
+      `Hi ${participant.fullName}, your payment for ${EVENT_CONFIG.name} is confirmed! ` +
         `BIB: ${participant.bibNumber}. Download certificate: ${baseUrl}/api/certificate/download/${participant._id}`
     );
   });
@@ -2482,26 +2451,58 @@ async function applyPaymentConfirmedEffects(participant) {
 }
 
 // ------------------------------------------------------------------
-// Categories & Slot Availability
+// Cities, Calendar & City-Wise Fees / Slot Availability
 // ------------------------------------------------------------------
+app.get(["/api/v1/marathon/cities", "/api/cities"], async (req, res) => {
+  try {
+    const participants = await Participant.find().lean();
+    const countsByCity = {};
+    for (const p of participants) {
+      const cId = String(p.cityId || "").toLowerCase();
+      if (!countsByCity[cId]) countsByCity[cId] = { total: 0, paid: 0, revenue: 0 };
+      countsByCity[cId].total += 1;
+      if (p.paymentStatus === "Paid") {
+        countsByCity[cId].paid += 1;
+        countsByCity[cId].revenue += getFeeInr(cId, p.raceId);
+      }
+    }
+    const cities = CITIES.map((c) => ({
+      ...c,
+      registrations: countsByCity[c.id]?.total || 0,
+      paidRegistrations: countsByCity[c.id]?.paid || 0,
+      revenue: countsByCity[c.id]?.revenue || 0,
+    }));
+    res.json({ success: true, event: EVENT_CONFIG, cities, races: Object.values(RACES) });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get(["/api/v1/marathon/categories", "/api/categories"], async (req, res) => {
   try {
+    const cityId = req.query.cityId ? String(req.query.cityId).trim().toLowerCase() : "";
     const list = await Promise.all(
-      Object.entries(RACE_CAPACITIES).map(async ([id, cat]) => {
-        const claimed = await Participant.countDocuments({ raceId: id, paymentStatus: "Paid" });
+      Object.entries(RACES).map(async ([id, cat]) => {
+        const filter = cityId && CITY_IDS.includes(cityId)
+          ? { cityId, raceId: id, paymentStatus: "Paid" }
+          : { raceId: id, paymentStatus: "Paid" };
+        const claimed = await Participant.countDocuments(filter);
+        const fee = cityId && CITY_IDS.includes(cityId) ? getFeeInr(cityId, id) : cat.baseFee;
         return {
           id,
           name: cat.name,
+          distance: cat.distance,
           type: cat.type,
-          fee: cat.fee,
-          price_in_paise: cat.fee * 100,
+          minAge: cat.minAge,
+          fee,
+          price_in_paise: fee * 100,
           total_slots: cat.totalSlots,
           slots_claimed: claimed,
           slots_remaining: Math.max(0, cat.totalSlots - claimed),
         };
       })
     );
-    res.json({ success: true, categories: list });
+    res.json({ success: true, cityId: cityId || null, categories: list });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -2537,8 +2538,11 @@ async function handleCreateOrder(req, res) {
       const fullName = (body.runnerName || body.fullName || "").trim();
       const email = (body.runnerEmail || body.email || "").trim().toLowerCase();
       const phone = (body.runnerPhone || body.phone || "").trim();
-      const raceId = (body.categoryId || body.raceId || "10k").trim().toLowerCase();
-      const cityId = (body.cityId || "chennai").trim().toLowerCase();
+      const raceId = (body.categoryId || body.raceId || "5k").trim().toLowerCase();
+      const cityId = (body.cityId || "vadodara").trim().toLowerCase();
+      const validRaceId = RACE_IDS.includes(raceId) ? raceId : "5k";
+      const validCityId = CITY_IDS.includes(cityId) ? cityId : "vadodara";
+      const cityCfg = getCityConfig(validCityId);
 
       if (!fullName || !email || !phone) {
         return res.status(400).json({ error: "Full name, email, and phone number are required." });
@@ -2558,12 +2562,12 @@ async function handleCreateOrder(req, res) {
           dob: body.dob || "2000-01-01",
           gender: body.gender || "Other",
           size: body.tshirtSize || body.size || "M",
-          raceId: ["5k", "10k", "21k"].includes(raceId) ? raceId : "10k",
-          cityId: ["chennai", "bengaluru", "salem"].includes(cityId) ? cityId : "chennai",
-          address: body.address || "Marina Beach Road",
-          city: body.city || "Chennai",
-          state: body.state || "Tamil Nadu",
-          pincode: body.pincode || "600001",
+          raceId: validRaceId,
+          cityId: validCityId,
+          address: body.address || cityCfg.venue,
+          city: body.city || cityCfg.name,
+          state: body.state || cityCfg.state,
+          pincode: body.pincode || cityCfg.defaultPincode,
           emergencyContact: body.emergencyContact || phone,
           emergencyContactName: body.emergencyContactName || "",
           medicalDeclaration: body.medicalDeclaration || "",
@@ -2571,9 +2575,13 @@ async function handleCreateOrder(req, res) {
         });
         await participant.save();
       } else {
-        // Update race category and details if changed
-        if (raceId) participant.raceId = raceId;
-        if (cityId) participant.cityId = cityId;
+        // Update race category, city and details if changed before payment
+        participant.raceId = validRaceId;
+        participant.cityId = validCityId;
+        if (body.city) participant.city = body.city;
+        if (body.state) participant.state = body.state;
+        if (body.address) participant.address = body.address;
+        if (body.pincode) participant.pincode = body.pincode;
         if (body.tshirtSize || body.size) participant.size = body.tshirtSize || body.size;
         if (body.medicalDeclaration) participant.medicalDeclaration = body.medicalDeclaration;
         if (body.emergencyContactName) participant.emergencyContactName = body.emergencyContactName;
@@ -2589,7 +2597,7 @@ async function handleCreateOrder(req, res) {
       });
     }
 
-    const feeInr = RACE_FEES_INR[participant.raceId] || 799;
+    const feeInr = getFeeInr(participant.cityId, participant.raceId);
     const amountPaise = Math.round(feeInr * 100);
 
     let orderData = null;
@@ -2605,7 +2613,7 @@ async function handleCreateOrder(req, res) {
           body: JSON.stringify({
             amount: amountPaise,
             currency: cfg.currency,
-            receipt: `rbl_${participant._id}_${Date.now()}`.slice(0, 40),
+            receipt: `inf_${participant._id}_${Date.now()}`.slice(0, 40),
             notes: {
               participantId: String(participant._id),
               name: participant.fullName,
@@ -3101,17 +3109,94 @@ app.get("/api/admin/reports/tshirt", authenticateAdmin, async (req, res) => {
     const sizeMap = {};
     const sizes = ["XS", "S", "M", "L", "XL", "XXL"];
     for (const s of sizes) {
-      sizeMap[s] = { size: s, total: 0, races: { "5k": 0, "10k": 0, "21k": 0 } };
+      sizeMap[s] = { size: s, total: 0, races: { "3k": 0, "5k": 0, "10k": 0 } };
     }
     for (const p of participants) {
       const s = (p.size || "").toUpperCase();
-      const r = (p.raceId || "10k").toLowerCase();
+      const r = (p.raceId || "5k").toLowerCase();
       if (sizeMap[s]) {
         sizeMap[s].total++;
         if (sizeMap[s].races[r] !== undefined) sizeMap[s].races[r]++;
       }
     }
     res.json(Object.values(sizeMap));
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Admin: City-Wise & Race-Wise Summary Report
+app.get("/api/admin/summary", authenticateAdmin, async (req, res) => {
+  try {
+    const participants = await Participant.find().lean();
+    let totalRevenue = 0;
+    let paidCount = 0;
+
+    const citySummary = Object.fromEntries(
+      CITIES.map((c) => [
+        c.id,
+        {
+          id: c.id,
+          name: c.name,
+          date: c.date,
+          fees: c.fees,
+          registered: 0,
+          paid: 0,
+          pending: 0,
+          revenue: 0,
+        },
+      ])
+    );
+
+    const raceSummary = Object.fromEntries(
+      RACE_IDS.map((r) => [
+        r,
+        { id: r, name: raceLabel(r), registered: 0, paid: 0, pending: 0, revenue: 0 },
+      ])
+    );
+
+    for (const p of participants) {
+      const cId = String(p.cityId || "").toLowerCase();
+      const rId = String(p.raceId || "").toLowerCase();
+      const isPaid = p.paymentStatus === "Paid";
+      const fee = getFeeInr(cId, rId);
+
+      if (citySummary[cId]) {
+        citySummary[cId].registered += 1;
+        if (isPaid) {
+          citySummary[cId].paid += 1;
+          citySummary[cId].revenue += fee;
+        } else {
+          citySummary[cId].pending += 1;
+        }
+      }
+
+      if (raceSummary[rId]) {
+        raceSummary[rId].registered += 1;
+        if (isPaid) {
+          raceSummary[rId].paid += 1;
+          raceSummary[rId].revenue += fee;
+        } else {
+          raceSummary[rId].pending += 1;
+        }
+      }
+
+      if (isPaid) {
+        paidCount += 1;
+        totalRevenue += fee;
+      }
+    }
+
+    res.json({
+      success: true,
+      event: EVENT_CONFIG,
+      totalRegistered: participants.length,
+      totalPaid: paidCount,
+      totalPending: participants.length - paidCount,
+      totalRevenue,
+      cities: Object.values(citySummary),
+      races: Object.values(raceSummary),
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

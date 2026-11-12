@@ -5,8 +5,8 @@ import { EVENT, RACES } from "@/data/marathon";
 export const Route = createFileRoute("/terms-and-conditions")({
   head: () => ({
     meta: [
-      { title: "Terms & Conditions · Run Beyond Limits 2026" },
-      { name: "description", content: "Official Terms and Conditions, race eligibility criteria, bib transfer disclaimers, and medical liability waivers for Run Beyond Limits 2026." },
+      { title: "Terms & Conditions · Infinity Marathon 2027" },
+      { name: "description", content: "Official Terms and Conditions, race eligibility criteria, bib transfer disclaimers, and medical liability waivers for Infinity Marathon 2027 – Run Beyond Limits." },
     ],
   }),
   component: TermsAndConditionsPage,
@@ -62,20 +62,20 @@ function TermsAndConditionsPage() {
               Event Eligibility & Age Restrictions
             </h2>
             <p className="mt-3">
-              To participate in any race category of {EVENT.name}, runners must strictly meet the minimum age criteria calculated as of race day (September 27, 2026):
+              To participate in any race category of {EVENT.name}, runners must strictly meet the minimum age criteria calculated as of their selected city&apos;s race day in May 2027:
             </p>
             <ul className="mt-3 space-y-2.5">
               <li className="flex items-start gap-2.5">
                 <CheckCircle2 className="h-4 w-4 text-emerald shrink-0 mt-1" />
-                <span><strong>21.1 KM Half Marathon:</strong> Participants must be at least <strong>18 years old</strong> on or before September 27, 2026.</span>
+                <span><strong>10 KM Challenge:</strong> Participants must be at least <strong>16 years old</strong> on or before their city&apos;s race date.</span>
               </li>
               <li className="flex items-start gap-2.5">
                 <CheckCircle2 className="h-4 w-4 text-emerald shrink-0 mt-1" />
-                <span><strong>10 KM Challenge Run:</strong> Participants must be at least <strong>16 years old</strong> on or before September 27, 2026.</span>
+                <span><strong>5 KM Fitness Run:</strong> Participants must be at least <strong>12 years old</strong> on or before their city&apos;s race date. Participants below 18 years must submit written parental or legal guardian consent.</span>
               </li>
               <li className="flex items-start gap-2.5">
                 <CheckCircle2 className="h-4 w-4 text-emerald shrink-0 mt-1" />
-                <span><strong>5 KM Fun Run:</strong> Participants must be at least <strong>12 years old</strong> on or before September 27, 2026. Participants below 18 years must submit written parental or legal guardian consent.</span>
+                <span><strong>3 KM Fun Run:</strong> Participants must be at least <strong>10 years old</strong> on or before their city&apos;s race date. Participants below 18 years must submit written parental or legal guardian consent.</span>
               </li>
             </ul>
             <p className="mt-3 text-xs md:text-sm text-slate-500 italic">

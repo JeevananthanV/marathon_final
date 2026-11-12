@@ -12,7 +12,7 @@ export default function Footer() {
         <div className="space-y-4">
           <div className="[&_span]:!text-white"><Logo inFooter /></div>
           <p className="text-sm text-white/60 max-w-xs leading-relaxed">
-            A premier marathon uniting runners across Chennai, Bengaluru, and Salem to celebrate fitness, endurance, and human potential.
+            A premier nationwide marathon uniting runners across 12 cities in India throughout May 2027 to celebrate fitness, endurance, and human potential.
           </p>
           <div className="flex gap-2.5 pt-2">
             {[Facebook, Instagram, Twitter, Youtube].map((Ico, i) => (
@@ -107,7 +107,7 @@ export default function Footer() {
       {/* Bottom Sub-Footer: Razorpay Mandated Compliance Bar */}
       <div className="border-t border-white/10 bg-black/20">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-5 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-white/50">
-          <p>&copy; 2026 InfinityMiles Sports & Events Foundation. All rights reserved.</p>
+          <p>&copy; 2027 InfinityMiles Sports & Events Foundation · Infinity Marathon 2027. All rights reserved.</p>
           <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-white/70">
             <Link to="/terms-and-conditions" className="hover:text-orange transition-colors">Terms & Conditions</Link>
             <span>•</span>

@@ -1,11 +1,11 @@
-# 🏃 Run Beyond Limits 2026 — User & Operations Manual
+# 🏃 Infinity Marathon 2027 – Run Beyond Limits — User & Operations Manual
 *A complete guide for Runners, Expo Volunteers, and Event Administrators*
 
 ---
 
 ## 📖 Welcome
 
-**Run Beyond Limits 2026** is an integrated marathon platform spanning **Chennai**, **Bengaluru**, and **Salem**. This manual covers everything you need to know, whether you are a runner registering for the race, an expo volunteer scanning participant passes, or an event administrator managing registrations.
+**Infinity Marathon 2027 – Run Beyond Limits** is an integrated nationwide marathon platform spanning **12 Host Cities across India** throughout **May 2027** (**Vadodara, Chennai, Mumbai, Kolkata, Surat, Delhi, Bengaluru, Jaipur, Hyderabad, Pune, Goa, Ahmedabad**), featuring **3K, 5K, and 10K** races with city-wise registration fees. This manual covers everything you need to know, whether you are a runner registering for the race, an expo volunteer scanning participant passes, or an event administrator managing registrations.
 
 * **Website Link:** [http://localhost:8080](http://localhost:8080)
 * **Admin Portal:** [http://localhost:8080/admin](http://localhost:8080/admin)
@@ -27,11 +27,17 @@
 4. **Medical Declaration:** Confirm your physical fitness and accept the standard marathon medical liability waiver.
 
 ### Step 3: Choose Your City, Race & T-Shirt Size
-1. **Select Host City:** Choose between **Chennai** (Marina Beach), **Bengaluru** (Kanteerava Stadium), or **Salem** (Mahatma Gandhi Stadium).
+1. **Select Host City (May 2027 Calendar):**
+   * **1 May 2027 (Sat – May Day):** Vadodara (`3K ₹399 | 5K ₹599 | 10K ₹799`) · Chennai (`3K ₹449 | 5K ₹649 | 10K ₹849`)
+   * **2 May 2027 (Sun):** Mumbai (`3K ₹499 | 5K ₹699 | 10K ₹899`) · Kolkata (`3K ₹399 | 5K ₹599 | 10K ₹799`)
+   * **9 May 2027 (Sun):** Surat (`3K ₹399 | 5K ₹599 | 10K ₹799`) · Delhi (`3K ₹499 | 5K ₹699 | 10K ₹899`)
+   * **16 May 2027 (Sun):** Bengaluru (`3K ₹499 | 5K ₹699 | 10K ₹899`) · Jaipur (`3K ₹399 | 5K ₹599 | 10K ₹799`)
+   * **23 May 2027 (Sun):** Hyderabad (`3K ₹449 | 5K ₹649 | 10K ₹849`) · Pune (`3K ₹449 | 5K ₹649 | 10K ₹849`)
+   * **30 May 2027 (Sun):** Goa (`3K ₹499 | 5K ₹699 | 10K ₹899`) · Ahmedabad (`3K ₹399 | 5K ₹599 | 10K ₹799`)
 2. **Select Distance:**
-   * **5K Fun Run (₹499):** Perfect for families, beginners, and fitness enthusiasts.
-   * **10K Challenge (₹799):** Timed run for passionate runners.
-   * **21.1K Half Marathon (₹999):** Premier timed endurance race with timing chip.
+   * **3K Fun Run (from ₹399):** Non-timed run for beginners, families, and community participants (Min age 10).
+   * **5K Fitness Run (from ₹599):** Timed fitness run (Min age 12).
+   * **10K Challenge (from ₹799):** Timed endurance race (Min age 16).
 3. **Choose Dry-Fit T-Shirt Size:** Select your size (`XS`, `S`, `M`, `L`, `XL`, `XXL`). Your official event dry-fit t-shirt will be packed accordingly.
 
 ### Step 4: Pay Securely via Razorpay
@@ -99,16 +105,16 @@ If a runner's phone camera is cracked or their QR code is smudged:
 3. Click **Sign In**.
 
 ### 2. Dashboard Overview (`Dashboard` Tab)
-* **Real-time Metrics:** Total registrations, confirmed paid runners, pending payments, and gross revenue.
-* **City Distribution:** Runners breakdown across Chennai, Bengaluru, and Salem.
-* **Category Share:** 5K vs 10K vs 21K registrations.
-* **Daily Registration Velocity:** Graph showing registrations over the last 14 days.
+* **Real-time Metrics:** Total registrations, confirmed paid runners, pending payments, and city-wise gross revenue.
+* **City Distribution:** Runners breakdown across all 12 host cities.
+* **Category Share:** 3K vs 5K vs 10K registrations.
+* **Daily Registration Velocity:** Graph showing registrations over time.
 
 ### 3. Managing Participants (`Players` Tab)
 * **Live Search & Filters:**
   * Search instantly across runner name, email, mobile number, or BIB number.
-  * Filter by **City** (All, Chennai, Bengaluru, Salem).
-  * Filter by **Race** (All, 5K, 10K, 21K).
+  * Filter by **City** (All 12 Cities: Vadodara, Chennai, Mumbai, Kolkata, Surat, Delhi, Bengaluru, Jaipur, Hyderabad, Pune, Goa, Ahmedabad).
+  * Filter by **Race** (All, 3K, 5K, 10K).
   * Filter by **Payment** (Paid vs Pending).
   * Filter by **Kit Status** (`All Kits`, `Kit Collected`, `Kit Pending`).
 * **Kit Handover Status:**

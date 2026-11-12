@@ -33,7 +33,7 @@ export function WhatsAppTab() {
   const [loading, setLoading] = useState(false);
   const [testPhone, setTestPhone] = useState("");
   const [testMessage, setTestMessage] = useState(
-    "Hello! This is a test message from Run Beyond Limits 2026."
+    "Hello! This is a test message from Infinity Marathon 2027 – Run Beyond Limits."
   );
 
   const token = localStorage.getItem("admin_token") || "";

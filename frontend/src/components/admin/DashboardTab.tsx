@@ -33,7 +33,7 @@ const tooltipStyle = {
 export function DashboardTab({ stats, categoryData, dailyData, cityData, participants, revenueByRace }: DashboardTabProps) {
   const conversionRate = stats.total > 0 ? Math.round((stats.paid / stats.total) * 100) : 0;
   const avgRevenuePerPaid = stats.paid > 0 ? Math.round(stats.revenue / stats.paid) : 0;
-  const pendingValue = stats.pending * 799; // Average estimate
+  const pendingValue = stats.pending * (avgRevenuePerPaid || 599); // Average estimate
 
   const [registrationGoal, setRegistrationGoal] = useState(() => {
     if (typeof window !== "undefined") {
@@ -62,7 +62,7 @@ export function DashboardTab({ stats, categoryData, dailyData, cityData, partici
   const categoryChartData = categoryData.map((d) => ({
     name: d.name,
     value: d.count,
-    fill: COLORS.qualitative[["5K", "10K", "21K"].indexOf(d.name)] || COLORS.primary,
+    fill: COLORS.qualitative[["3K", "5K", "10K"].indexOf(d.name)] || COLORS.primary,
   }));
 
   const cityChartData = cityData.map((d, i) => ({

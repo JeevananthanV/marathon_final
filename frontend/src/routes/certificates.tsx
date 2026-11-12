@@ -6,8 +6,8 @@ import { toast } from "sonner";
 export const Route = createFileRoute("/certificates")({
   head: () => ({
     meta: [
-      { title: "Certificates · Run Beyond Limits 2026" },
-      { name: "description", content: "Retrieve and download your participation certificate for Run Beyond Limits 2026." },
+      { title: "Certificates · Infinity Marathon 2027" },
+      { name: "description", content: "Retrieve and download your official participation and finisher certificate for Infinity Marathon 2027 – Run Beyond Limits." },
     ],
   }),
   component: CertificatesPage,

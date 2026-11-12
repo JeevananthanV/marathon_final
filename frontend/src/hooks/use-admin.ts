@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { toast } from "sonner";
 import type { Participant, ContactMessage, TShirtRow, ReportRow, AdminTab } from "@/components/admin/types";
-import { RACE_PRICES, API_BASE } from "@/components/admin/types";
+import { API_BASE } from "@/components/admin/types";
+import { getRaceFee, getCityById } from "@/data/marathon";
 
 export function useAdmin() {
   const [token, setToken] = useState<string | null>(null);
@@ -192,15 +193,15 @@ export function useAdmin() {
     const pending = total - paid;
     const revenue = participants
       .filter((p) => p.paymentStatus === "Paid")
-      .reduce((acc, p) => acc + (RACE_PRICES[(p.raceId || "").toLowerCase()] || 0), 0);
+      .reduce((acc, p) => acc + getRaceFee(p.cityId, p.raceId), 0);
     return { total, paid, pending, revenue };
   }, [participants]);
 
   const categoryData = useMemo(() => {
-    const cats = { "5k": 0, "10k": 0, "21k": 0 };
+    const cats: Record<string, number> = { "3k": 0, "5k": 0, "10k": 0 };
     participants.forEach((p) => {
       const rId = (p.raceId || "").toLowerCase();
-      if (cats[rId as keyof typeof cats] !== undefined) cats[rId as keyof typeof cats]++;
+      if (cats[rId] !== undefined) cats[rId]++;
     });
     return Object.entries(cats).map(([name, count]) => ({ name: name.toUpperCase(), count }));
   }, [participants]);
@@ -220,17 +221,17 @@ export function useAdmin() {
       const c = p.cityId || "unknown";
       map[c] = (map[c] || 0) + 1;
     });
-    return Object.entries(map).map(([name, value]) => ({
-      name: name.charAt(0).toUpperCase() + name.slice(1),
+    return Object.entries(map).map(([id, value]) => ({
+      name: getCityById(id).name || (id.charAt(0).toUpperCase() + id.slice(1)),
       value,
     }));
   }, [participants]);
 
   const reportData = useMemo((): ReportRow[] => {
     const races: Record<string, { registered: number; paid: number; pending: number; revenue: number }> = {
+      "3k": { registered: 0, paid: 0, pending: 0, revenue: 0 },
       "5k": { registered: 0, paid: 0, pending: 0, revenue: 0 },
       "10k": { registered: 0, paid: 0, pending: 0, revenue: 0 },
-      "21k": { registered: 0, paid: 0, pending: 0, revenue: 0 },
     };
     participants.forEach((p) => {
       const rId = (p.raceId || "").toLowerCase();
@@ -239,7 +240,7 @@ export function useAdmin() {
         r.registered++;
         if (p.paymentStatus === "Paid") {
           r.paid++;
-          r.revenue += RACE_PRICES[rId] || 0;
+          r.revenue += getRaceFee(p.cityId, rId);
         } else {
           r.pending++;
         }
@@ -254,22 +255,23 @@ export function useAdmin() {
       .filter((p) => p.paymentStatus === "Paid")
       .forEach((p) => {
         const c = p.cityId || "unknown";
-        const rId = (p.raceId || "").toLowerCase();
-        map[c] = (map[c] || 0) + (RACE_PRICES[rId] || 0);
+        map[c] = (map[c] || 0) + getRaceFee(c, p.raceId);
       });
-    return Object.entries(map).map(([name, revenue]) => ({
-      name: name.charAt(0).toUpperCase() + name.slice(1),
+    return Object.entries(map).map(([id, revenue]) => ({
+      name: getCityById(id).name || (id.charAt(0).toUpperCase() + id.slice(1)),
       revenue,
     }));
   }, [participants]);
 
   const revenueByRace = useMemo(() => {
-    const map: Record<string, number> = {};
+    const map: Record<string, number> = { "3k": 0, "5k": 0, "10k": 0 };
     participants
       .filter((p) => p.paymentStatus === "Paid")
       .forEach((p) => {
         const rId = (p.raceId || "").toLowerCase();
-        map[rId] = (map[rId] || 0) + (RACE_PRICES[rId] || 0);
+        if (map[rId] !== undefined) {
+          map[rId] += getRaceFee(p.cityId, rId);
+        }
       });
     return Object.entries(map).map(([name, revenue]) => ({ name: name.toUpperCase(), revenue }));
   }, [participants]);

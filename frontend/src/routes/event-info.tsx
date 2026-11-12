@@ -8,8 +8,8 @@ import { EVENT } from "@/data/marathon";
 export const Route = createFileRoute("/event-info")({
   head: () => ({
     meta: [
-      { title: "Event Info · Run Beyond Limits 2026" },
-      { name: "description", content: "Race categories, schedule, bib pickup and everything you need to know about Run Beyond Limits 2026." },
+      { title: "Event Info · Infinity Marathon 2027" },
+      { name: "description", content: "Race categories, city schedules, bib pickup and everything you need to know about Infinity Marathon 2027 – Run Beyond Limits." },
     ],
   }),
   component: EventInfo,

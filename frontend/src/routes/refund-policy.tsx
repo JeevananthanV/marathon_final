@@ -5,8 +5,8 @@ import { EVENT } from "@/data/marathon";
 export const Route = createFileRoute("/refund-policy")({
   head: () => ({
     meta: [
-      { title: "Cancellation & Refund Policy · Run Beyond Limits 2026" },
-      { name: "description", content: "Official Cancellation and Refund policy, Force Majeure clauses, and Razorpay dispute protocols for Run Beyond Limits 2026." },
+      { title: "Cancellation & Refund Policy · Infinity Marathon 2027" },
+      { name: "description", content: "Official Cancellation and Refund policy, Force Majeure clauses, and Razorpay dispute protocols for Infinity Marathon 2027." },
     ],
   }),
   component: RefundPolicyPage,
@@ -51,7 +51,7 @@ function RefundPolicyPage() {
               General Registration Policy
             </h2>
             <p className="mt-3">
-              All registrations for <strong>{EVENT.name}</strong> (covering the 21.1 KM Half Marathon, 10 KM Run, and 5 KM Fun Run) are deemed final. We do not entertain personal withdrawal requests, race category downgrades, or refund claims resulting from personal schedule conflicts, travel issues, work commitments, or minor athletic injuries occurring before the event date.
+              All registrations for <strong>{EVENT.name}</strong> (covering the 3K Fun Run, 5K Fitness Run, and 10K Challenge across all 12 cities) are deemed final. We do not entertain personal withdrawal requests, race category downgrades, or refund claims resulting from personal schedule conflicts, travel issues, work commitments, or minor athletic injuries occurring before the event date.
             </p>
           </section>
 

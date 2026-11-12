@@ -1,15 +1,15 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { Check, ChevronLeft, ChevronRight, CircleCheck, Clock, CreditCard, Banknote, MapPin, ShieldCheck } from "lucide-react";
-import { RACES, EVENT, CITIES } from "@/data/marathon";
+import { RACES, EVENT, CITIES, getRaceFee, getCityById, getRaceById } from "@/data/marathon";
 import { z } from "zod";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/register")({
   head: () => ({
     meta: [
-      { title: "Register · Run Beyond Limits 2026" },
-      { name: "description", content: "Complete your registration for Run Beyond Limits 2026 in a few simple steps." },
+      { title: "Register · Infinity Marathon 2027" },
+      { name: "description", content: "Complete your registration for Infinity Marathon 2027 – Run Beyond Limits across 12 cities in India." },
     ],
   }),
   component: RegisterPage,
@@ -72,8 +72,8 @@ const addressSchema = z.object({
 function RegisterPage() {
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
-  const [cityId, setCityId] = useState<string>("chennai");
-  const [raceId, setRaceId] = useState<string>("10k");
+  const [cityId, setCityId] = useState<string>("vadodara");
+  const [raceId, setRaceId] = useState<string>("5k");
   const [details, setDetails] = useState({
     fullName: "",
     dob: "",
@@ -95,7 +95,18 @@ function RegisterPage() {
   const [paying, setPaying] = useState(false);
   const [payMethod, setPayMethod] = useState<"online" | "venue">("online");
 
-  const race = useMemo(() => RACES.find((r) => r.id === raceId)!, [raceId]);
+  const race = useMemo(() => getRaceById(raceId), [raceId]);
+  const selectedCity = useMemo(() => getCityById(cityId), [cityId]);
+  const activeFee = useMemo(() => getRaceFee(cityId, raceId), [cityId, raceId]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const cParam = params.get("city")?.trim().toLowerCase();
+    const rParam = params.get("race")?.trim().toLowerCase();
+    if (cParam && CITIES.some((c) => c.id === cParam)) setCityId(cParam);
+    if (rParam && RACES.some((r) => r.id === rParam)) setRaceId(rParam);
+  }, []);
 
   // Ask the backend once whether Razorpay is configured (keys present).
   useEffect(() => {
@@ -123,7 +134,7 @@ function RegisterPage() {
       }
       // Age controls per category
       const age = calculateAge(details.dob);
-      const minAge = raceId === "21k" ? 18 : raceId === "10k" ? 16 : 12;
+      const minAge = race.minAgeNum;
       if (age < minAge) {
         setErrors({
           dob: `Age requirement: Minimum age for ${race.distance} KM is ${minAge} years (calculated age: ${age}).`,
@@ -224,8 +235,8 @@ function RegisterPage() {
         amount: ord.amount,
         currency: ord.currency,
         order_id: ord.orderId,
-        name: "Run Beyond Limits 2026",
-        description: `${race.distance} KM ${race.type} — ₹${race.fee}`,
+        name: EVENT.name,
+        description: `${selectedCity.name} · ${race.distance} KM ${race.type} — ₹${activeFee}`,
         prefill: { name: details.fullName, email: details.email, contact: details.phone },
         notes: { race: raceId, city: cityId },
         theme: { color: "#F97316" },
@@ -307,15 +318,15 @@ function RegisterPage() {
               <h1 className="mt-4 font-display text-3xl font-extrabold text-charcoal">Registration Reserved!</h1>
               <p className="mt-2 text-muted-foreground">
                 Your spot for the{" "}
-                <span className="font-semibold text-charcoal">{race.distance} KM {race.type}</span> is reserved.
-                Complete the <span className="font-semibold text-charcoal">₹{race.fee}</span> payment to confirm it.
+                <span className="font-semibold text-charcoal">{race.distance} KM {race.type}</span> in {selectedCity.name} is reserved.
+                Complete the <span className="font-semibold text-charcoal">₹{activeFee}</span> payment to confirm it.
               </p>
               <button
                 onClick={() => participantId !== null && startPayment(participantId)}
                 disabled={paying}
                 className="mt-6 inline-flex rounded-full gradient-orange text-white px-8 py-3 font-semibold disabled:opacity-60"
               >
-                {paying ? "Opening payment…" : `Pay ₹${race.fee} Now`}
+                {paying ? "Opening payment…" : `Pay ₹${activeFee} Now`}
               </button>
               <div className="mt-4">
                 <Link to="/" className="text-sm text-muted-foreground underline underline-offset-4">
@@ -346,7 +357,7 @@ function RegisterPage() {
       <section className="page-header-banner text-white py-10 md:py-14">
         <div className="relative mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 text-center">
           <p className="text-white/70 font-semibold text-sm tracking-widest uppercase">Registration</p>
-          <h1 className="mt-2 font-display text-3xl md:text-5xl font-extrabold">Join Run Beyond Limits 2026</h1>
+          <h1 className="mt-2 font-display text-3xl md:text-5xl font-extrabold">Join {EVENT.name}</h1>
           <p className="mt-3 text-base md:text-lg text-white/80 max-w-xl mx-auto">
             Complete your registration in a few simple steps and secure your spot.
           </p>
@@ -372,19 +383,30 @@ function RegisterPage() {
         <div className="rounded-3xl bg-white p-6 md:p-10 shadow-soft">
           {step === 0 && (
             <div>
-              <h2 className="font-display text-2xl font-bold text-charcoal">Select Your City</h2>
-              <p className="mt-1 text-sm text-muted-foreground">Choose where you want to run.</p>
-              <div className="mt-6 grid gap-4 md:grid-cols-3">
+              <h2 className="font-display text-2xl font-bold text-charcoal">Select Your City (12 Host Cities)</h2>
+              <p className="mt-1 text-sm text-muted-foreground">Choose your city — fees and race date update automatically for your selection.</p>
+              <div className="mt-6 grid gap-3.5 sm:grid-cols-2 md:grid-cols-3">
                 {CITIES.map((c) => (
                   <button
                     key={c.id}
+                    type="button"
                     onClick={() => setCityId(c.id)}
-                    className={`text-left rounded-2xl p-5 border-2 transition ${
+                    className={`text-left rounded-2xl p-4 border-2 transition ${
                       cityId === c.id ? "border-navy bg-navy/5 shadow-soft" : "border-border hover:border-navy/30"
                     }`}
                   >
-                    <div className="font-display text-2xl font-black text-charcoal">{c.name}</div>
-                    <p className="mt-1 text-sm flex items-center gap-1"><MapPin className="h-3 w-3"/> {c.venue}</p>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-display text-xl font-black text-charcoal">{c.name}</span>
+                      <span className="text-[10px] font-bold uppercase tracking-wider rounded-full bg-orange/10 text-orange px-2 py-0.5">
+                        {c.shortDate}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground flex items-start gap-1">
+                      <MapPin className="h-3.5 w-3.5 shrink-0 mt-0.5 text-navy" /> {c.venue}
+                    </p>
+                    <p className="mt-2.5 text-[11px] font-bold text-navy">
+                      3K ₹{c.fees["3k"]} · 5K ₹{c.fees["5k"]} · 10K ₹{c.fees["10k"]}
+                    </p>
                   </button>
                 ))}
               </div>
@@ -393,23 +415,27 @@ function RegisterPage() {
 
           {step === 1 && (
             <div>
-              <h2 className="font-display text-2xl font-bold text-charcoal">Select Your Race</h2>
-              <p className="mt-1 text-sm text-muted-foreground">Choose the distance that inspires you.</p>
+              <h2 className="font-display text-2xl font-bold text-charcoal">Select Your Race ({selectedCity.name})</h2>
+              <p className="mt-1 text-sm text-muted-foreground">Race Date: {selectedCity.date} · Choose your distance.</p>
               <div className="mt-6 grid gap-4 md:grid-cols-3">
-                {RACES.map((r) => (
-                  <button
-                    key={r.id}
-                    onClick={() => setRaceId(r.id)}
-                    className={`text-left rounded-2xl p-5 border-2 transition ${
-                      raceId === r.id ? "border-navy bg-navy/5 shadow-soft" : "border-border hover:border-navy/30"
-                    }`}
-                  >
-                    <div className="font-display text-4xl font-black text-charcoal">{r.distance}<span className="text-lg"> KM</span></div>
-                    <p className="mt-1 font-semibold">{r.type}</p>
-                    <p className="text-xs text-muted-foreground">{r.subtype} · Min age {r.minAge}</p>
-                    <p className="mt-3 text-orange font-bold">₹{r.fee}</p>
-                  </button>
-                ))}
+                {RACES.map((r) => {
+                  const cityFee = getRaceFee(cityId, r.id);
+                  return (
+                    <button
+                      key={r.id}
+                      type="button"
+                      onClick={() => setRaceId(r.id)}
+                      className={`text-left rounded-2xl p-5 border-2 transition ${
+                        raceId === r.id ? "border-navy bg-navy/5 shadow-soft" : "border-border hover:border-navy/30"
+                      }`}
+                    >
+                      <div className="font-display text-4xl font-black text-charcoal">{r.distance}<span className="text-lg"> KM</span></div>
+                      <p className="mt-1 font-semibold">{r.type}</p>
+                      <p className="text-xs text-muted-foreground">{r.subtype} · Min age {r.minAge}</p>
+                      <p className="mt-3 text-orange font-bold text-lg">₹{cityFee}</p>
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -544,9 +570,9 @@ function RegisterPage() {
                 <div className="rounded-2xl gradient-orange text-white p-5 flex items-center justify-between mt-6">
                   <div>
                     <p className="text-xs uppercase tracking-widest text-white/80">Total</p>
-                    <p className="font-display text-3xl font-black">₹{race.fee}</p>
+                    <p className="font-display text-3xl font-black">₹{activeFee}</p>
                   </div>
-                  <p className="text-xs text-white/80 max-w-[150px] text-right">{EVENT.date}<br/>{CITIES.find(c => c.id === cityId)?.name}</p>
+                  <p className="text-xs text-white/80 max-w-[180px] text-right">{selectedCity.date}<br/>{selectedCity.name}</p>
                 </div>
               </div>
             </div>
@@ -581,8 +607,8 @@ function RegisterPage() {
   );
 }
 
-function Input({ label, value, onChange, type = "text", error }: {
-  label: string; value: string; onChange: (v: string) => void; type?: string; error?: string;
+function Input({ label, value, onChange, type = "text", error, placeholder }: {
+  label: string; value: string; onChange: (v: string) => void; type?: string; error?: string; placeholder?: string;
 }) {
   const id = label.toLowerCase().replace(/\s+/g, "-");
   return (
@@ -592,6 +618,7 @@ function Input({ label, value, onChange, type = "text", error }: {
         id={id}
         type={type}
         value={value}
+        placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}
         className={`mt-1.5 w-full rounded-xl border bg-white px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-navy ${error ? "border-destructive" : "border-border"}`}
       />

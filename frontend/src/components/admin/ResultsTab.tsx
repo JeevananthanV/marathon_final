@@ -13,6 +13,7 @@ import {
 import { toast } from "sonner";
 import type { Participant } from "./types";
 import { API_BASE } from "./types";
+import { CITIES, RACES } from "@/data/marathon";
 
 interface ResultsTabProps {
   participants: Participant[];
@@ -137,9 +138,9 @@ export function ResultsTab({ participants, onUpdateParticipant, onSendCertificat
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Cities</SelectItem>
-                <SelectItem value="chennai">Chennai</SelectItem>
-                <SelectItem value="bengaluru">Bengaluru</SelectItem>
-                <SelectItem value="salem">Salem</SelectItem>
+                {CITIES.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
 
@@ -150,9 +151,9 @@ export function ResultsTab({ participants, onUpdateParticipant, onSendCertificat
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Races</SelectItem>
-                <SelectItem value="5k">5K Run</SelectItem>
-                <SelectItem value="10k">10K Run</SelectItem>
-                <SelectItem value="21k">21K Run</SelectItem>
+                {RACES.map((r) => (
+                  <SelectItem key={r.id} value={r.id}>{r.type}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
 

@@ -5,8 +5,8 @@ import { EVENT, CITIES } from "@/data/marathon";
 export const Route = createFileRoute("/shipping-policy")({
   head: () => ({
     meta: [
-      { title: "Shipping & Delivery Policy · Run Beyond Limits 2026" },
-      { name: "description", content: "Shipping and physical kit collection guidelines, electronic ticket delivery schedules, and Pre-Event Expo details for Run Beyond Limits 2026." },
+      { title: "Shipping & Delivery Policy · Infinity Marathon 2027" },
+      { name: "description", content: "Shipping and physical kit collection guidelines, electronic ticket delivery schedules, and Pre-Event Expo details for Infinity Marathon 2027." },
     ],
   }),
   component: ShippingPolicyPage,
@@ -26,7 +26,7 @@ function ShippingPolicyPage() {
             Shipping & Delivery Policy
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            Effective Date: January 15, 2026 · Fulfillment Model: Digital Confirmation + In-Person Expo Collection
+            Effective Date: January 15, 2027 · Fulfillment Model: Digital Confirmation + In-Person Expo Collection
           </p>
         </div>
 
@@ -36,7 +36,7 @@ function ShippingPolicyPage() {
             <Package className="h-5 w-5 text-navy shrink-0 mt-0.5" />
             <div className="text-xs md:text-sm text-slate-700 leading-relaxed">
               <strong className="text-charcoal font-semibold block mb-0.5">Important Delivery Notice</strong>
-              Physical race merchandise (Official Technical Running T-shirt, Allocated Bib with RFID timing chip, Goodie Bag) <strong>is NOT dispatched via courier to residential postal addresses</strong>. All physical items must be collected in person at the <strong>Pre-Event Bib Expo</strong> on September 25–26, 2026.
+              Physical race merchandise (Official Technical Running T-shirt, Allocated Bib with RFID timing chip, Goodie Bag) <strong>is NOT dispatched via courier to residential postal addresses</strong>. All physical items must be collected in person at the <strong>Pre-Event Bib Expo</strong> 1–2 days prior to your selected city&apos;s race date in May 2027.
             </div>
           </div>
         </div>
@@ -80,10 +80,10 @@ function ShippingPolicyPage() {
             </p>
             <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs md:text-sm space-y-2">
               <p className="flex items-center gap-2 font-bold text-charcoal">
-                <Calendar className="h-4 w-4 text-orange" /> Expo Schedule: Friday, September 25 & Saturday, September 26, 2026
+                <Calendar className="h-4 w-4 text-orange" /> Expo Schedule: 1–2 Days Prior to Each City&apos;s Race Day (May 2027)
               </p>
               <p className="text-slate-600">
-                Operating Timings: <strong>10:00 AM to 7:00 PM IST</strong> (Counters strictly close at 7:00 PM on Sept 26).
+                Operating Timings: <strong>10:00 AM to 7:00 PM IST</strong> (Counters strictly close at 7:00 PM the evening before your city&apos;s race).
               </p>
             </div>
 
@@ -91,6 +91,7 @@ function ShippingPolicyPage() {
               {CITIES.map((c) => (
                 <div key={c.id} className="rounded-xl border border-slate-200 bg-white p-3.5 shadow-soft">
                   <span className="font-bold text-navy block text-sm">{c.name} Expo Center</span>
+                  <span className="text-[11px] font-semibold text-orange block mt-0.5">Expo: {c.expoDates}</span>
                   <p className="mt-1 text-xs text-slate-600 flex items-start gap-1">
                     <MapPin className="h-3 w-3 shrink-0 mt-0.5 text-orange" />
                     {c.venue}
@@ -116,7 +117,7 @@ function ShippingPolicyPage() {
             </ol>
             <div className="mt-3 rounded-xl bg-amber-50 border border-amber-200 p-3.5 text-xs text-amber-900 flex items-start gap-2.5">
               <AlertCircle className="h-4 w-4 text-amber-700 shrink-0 mt-0.5" />
-              <span><strong>Strict No Race Day Pickup:</strong> For safety and crowd management protocols, no Bib distribution or T-shirt distribution will occur on race morning (Sunday, September 27, 2026). Kits not collected by 7:00 PM on September 26 will be forfeited.</span>
+              <span><strong>Strict No Race Day Pickup:</strong> For safety and crowd management protocols, no Bib distribution or T-shirt distribution will occur on race morning. Kits not collected by 7:00 PM on the final Expo day in your host city will be forfeited.</span>
             </div>
           </section>
 

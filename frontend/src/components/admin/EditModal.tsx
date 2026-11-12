@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { User, Save, X as XIcon } from "lucide-react";
 import type { Participant } from "./types";
+import { CITIES, RACES } from "@/data/marathon";
 import { PremiumBadge, InsightCard, TrendBadge, PremiumAvatar, PremiumSkeleton, StatTrend, PremiumProgressRing, PremiumCard, SectionHeader, PageHeader } from "./PremiumUI";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -104,6 +105,35 @@ export function EditModal({ participant, onClose, onSave }: EditModalProps) {
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: 0.18 }}
+            className="space-y-1.5"
+          >
+            <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider dark:text-white/50">Host City</Label>
+            <Select
+              value={form.cityId}
+              onValueChange={(v) => {
+                const c = CITIES.find((item) => item.id === v);
+                setForm((prev) => ({
+                  ...prev,
+                  cityId: v,
+                  city: c?.name || prev.city,
+                  state: c?.state || prev.state,
+                }));
+              }}
+            >
+              <SelectTrigger className="h-10 rounded-xl bg-muted/40 border-border/60 text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 dark:bg-white/5 dark:border-white/10 dark:text-white">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {CITIES.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>{c.name} ({c.shortDate})</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </motion.div>
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, delay: 0.2 }}
             className="space-y-1.5"
           >
@@ -113,9 +143,9 @@ export function EditModal({ participant, onClose, onSave }: EditModalProps) {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="5k">5K Fun Run</SelectItem>
-                <SelectItem value="10k">10K Challenge</SelectItem>
-                <SelectItem value="21k">Half Marathon (21K)</SelectItem>
+                {RACES.map((r) => (
+                  <SelectItem key={r.id} value={r.id}>{r.type}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </motion.div>

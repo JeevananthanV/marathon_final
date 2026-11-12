@@ -19,7 +19,7 @@ export default function HeartHealthSection() {
             Run for Your <span className="text-orange">Limits</span>
           </h2>
           <p className="mt-4 text-muted-foreground leading-relaxed text-lg">
-            Run Beyond Limits is more than a race — it's a movement for pushing personal boundaries.
+            Infinity Marathon 2027 – Run Beyond Limits is more than a race — it's a nationwide movement for pushing personal boundaries.
             Every stride is a reminder that regular activity, mindful nutrition and small daily habits
             add up to a lifetime of incredible endurance and strength.
           </p>

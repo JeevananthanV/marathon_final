@@ -7,8 +7,8 @@ import { toast } from "sonner";
 export const Route = createFileRoute("/contact-us")({
   head: () => ({
     meta: [
-      { title: "Contact Us · Legal & Support Information · Run Beyond Limits 2026" },
-      { name: "description", content: "Official corporate contact details, physical registered office address, helpline numbers, and grievance desk for Run Beyond Limits 2026." },
+      { title: "Contact Us · Infinity Marathon 2027" },
+      { name: "description", content: "Official corporate contact details, physical registered office address, helpline numbers, and grievance desk for Infinity Marathon 2027." },
     ],
   }),
   component: ContactUsPage,

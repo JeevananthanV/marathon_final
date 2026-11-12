@@ -17,8 +17,8 @@ interface TShirtTabProps {
 
 export function TShirtTab({ tshirtData, participants }: TShirtTabProps) {
   function exportCSV() {
-    const headers = ["Size", "5K", "10K", "21K", "Total"];
-    const rows = tshirtData.map((t) => [t.size, t.races["5k"], t.races["10k"], t.races["21k"], t.total]);
+    const headers = ["Size", "3K", "5K", "10K", "Total"];
+    const rows = tshirtData.map((t) => [t.size, t.races["3k"] || 0, t.races["5k"] || 0, t.races["10k"] || 0, t.total]);
     const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "T-Shirt Report");
@@ -27,8 +27,8 @@ export function TShirtTab({ tshirtData, participants }: TShirtTabProps) {
   }
 
   function exportExcel() {
-    const headers = ["Size", "5K", "10K", "21K", "Total"];
-    const rows = tshirtData.map((t) => [t.size, t.races["5k"], t.races["10k"], t.races["21k"], t.total]);
+    const headers = ["Size", "3K", "5K", "10K", "Total"];
+    const rows = tshirtData.map((t) => [t.size, t.races["3k"] || 0, t.races["5k"] || 0, t.races["10k"] || 0, t.total]);
     const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "T-Shirt Report");
@@ -175,9 +175,9 @@ export function TShirtTab({ tshirtData, participants }: TShirtTabProps) {
             <thead className="bg-muted text-xs uppercase font-bold text-muted-foreground tracking-wider">
               <tr>
                 <th className="px-6 py-3.5 text-center">Size</th>
+                <th className="px-6 py-3.5 text-center">3K</th>
                 <th className="px-6 py-3.5 text-center">5K</th>
                 <th className="px-6 py-3.5 text-center">10K</th>
-                <th className="px-6 py-3.5 text-center">21K</th>
                 <th className="px-6 py-3.5 text-center font-black text-foreground">Total</th>
                 <th className="px-6 py-3.5 text-center">Share</th>
               </tr>
@@ -189,9 +189,9 @@ export function TShirtTab({ tshirtData, participants }: TShirtTabProps) {
                     style={{ color: COLORS.qualitative[i % COLORS.qualitative.length] }}>
                     {t.size}
                   </td>
-                  <td className="px-6 py-3.5 text-center text-sm">{t.races["5k"]}</td>
-                  <td className="px-6 py-3.5 text-center text-sm">{t.races["10k"]}</td>
-                  <td className="px-6 py-3.5 text-center text-sm">{t.races["21k"]}</td>
+                  <td className="px-6 py-3.5 text-center text-sm">{t.races["3k"] || 0}</td>
+                  <td className="px-6 py-3.5 text-center text-sm">{t.races["5k"] || 0}</td>
+                  <td className="px-6 py-3.5 text-center text-sm">{t.races["10k"] || 0}</td>
                   <td className="px-6 py-3.5 text-center font-black text-base text-foreground">{t.total}</td>
                   <td className="px-6 py-3.5 text-center">
                     <div className="flex items-center justify-center gap-2">
@@ -229,16 +229,16 @@ export function TShirtTab({ tshirtData, participants }: TShirtTabProps) {
               </div>
               <div className="grid grid-cols-4 gap-2 text-center text-xs">
                 <div className="bg-muted/30 dark:bg-white/5 p-2 rounded-lg">
+                  <span className="text-[10px] text-muted-foreground block font-bold uppercase">3K</span>
+                  <span className="font-semibold text-foreground">{t.races["3k"] || 0}</span>
+                </div>
+                <div className="bg-muted/30 dark:bg-white/5 p-2 rounded-lg">
                   <span className="text-[10px] text-muted-foreground block font-bold uppercase">5K</span>
-                  <span className="font-semibold text-foreground">{t.races["5k"]}</span>
+                  <span className="font-semibold text-foreground">{t.races["5k"] || 0}</span>
                 </div>
                 <div className="bg-muted/30 dark:bg-white/5 p-2 rounded-lg">
                   <span className="text-[10px] text-muted-foreground block font-bold uppercase">10K</span>
-                  <span className="font-semibold text-foreground">{t.races["10k"]}</span>
-                </div>
-                <div className="bg-muted/30 dark:bg-white/5 p-2 rounded-lg">
-                  <span className="text-[10px] text-muted-foreground block font-bold uppercase">21K</span>
-                  <span className="font-semibold text-foreground">{t.races["21k"]}</span>
+                  <span className="font-semibold text-foreground">{t.races["10k"] || 0}</span>
                 </div>
                 <div className="bg-primary/10 p-2 rounded-lg">
                   <span className="text-[10px] text-primary block font-bold uppercase">Total</span>
@@ -271,14 +271,14 @@ export function TShirtTab({ tshirtData, participants }: TShirtTabProps) {
           <PremiumStackedBarChart
             data={tshirtData.map(t => ({
               name: t.size,
-              "5K": t.races["5k"],
-              "10K": t.races["10k"],
-              "21K": t.races["21k"],
+              "3K": t.races["3k"] || 0,
+              "5K": t.races["5k"] || 0,
+              "10K": t.races["10k"] || 0,
             }))}
             stacks={[
+              { dataKey: "3K", name: "3K", color: COLORS.accent },
               { dataKey: "5K", name: "5K", color: COLORS.primary },
               { dataKey: "10K", name: "10K", color: COLORS.secondary },
-              { dataKey: "21K", name: "21K", color: COLORS.accent },
             ]}
             height={300}
           />

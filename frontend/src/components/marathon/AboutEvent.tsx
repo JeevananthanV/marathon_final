@@ -48,7 +48,7 @@ export default function AboutEvent() {
           </motion.div>
           <div className="absolute -top-4 -left-4 hidden md:flex items-center gap-2 rounded-full bg-slate-900/10 dark:bg-white/10 backdrop-blur-md ring-1 ring-slate-900/20 dark:ring-white/20 px-4 py-2 animate-float">
             <MapPin className="h-4 w-4 text-orange" />
-            <span className="text-xs font-semibold text-slate-800 dark:text-white">3 Cities</span>
+            <span className="text-xs font-semibold text-slate-800 dark:text-white">12 Cities Across India</span>
           </div>
         </div>
 
@@ -58,7 +58,7 @@ export default function AboutEvent() {
           <div className="flex items-center gap-4 mb-4 md:hidden">
             <div className="flex items-center gap-2 rounded-full bg-slate-100 dark:bg-white/10 ring-1 ring-slate-200 dark:ring-white/20 px-3 py-1.5">
               <MapPin className="h-3 w-3 text-orange" />
-              <span className="text-xs font-semibold text-slate-700 dark:text-white">3 Cities</span>
+              <span className="text-xs font-semibold text-slate-700 dark:text-white">12 Cities</span>
             </div>
             <div className="flex items-center gap-2 rounded-full bg-slate-100 dark:bg-white/10 ring-1 ring-slate-200 dark:ring-white/20 px-3 py-1.5">
               <Heart className="h-3 w-3 text-orange" />
@@ -75,11 +75,11 @@ export default function AboutEvent() {
             className="mt-2 md:mt-3 font-display text-2xl md:text-5xl lg:text-6xl font-extrabold text-navy dark:text-white leading-tight"
           >
             Tie Your Laces, Get Ready and{" "}
-            <span className="text-orange-gradient">Push Your Limits</span>
+            <span className="text-orange-gradient">Run Beyond Limits</span>
           </motion.h2>
           <div className="mt-3 h-1 w-16 rounded-full bg-orange" />
           <p className="mt-4 text-slate-600 dark:text-white/80 text-sm md:text-lg leading-relaxed">
-            We are excited to announce Run Beyond Limits, happening on 27th September 2026 simultaneously across Chennai, Bengaluru, and Salem. With the theme "Push Your Endurance", this year's event continues our mission to raise awareness about fitness, resilience, and personal records.
+            We are excited to present Infinity Marathon 2027, spanning 12 iconic host cities across India throughout May 2027. With the theme "Run Beyond Limits", this premier nationwide event features 3K, 5K, and 10K races tailored with city-wise registration fees to inspire fitness, community resilience, and athletic personal bests.
           </p>
           <p className="mt-3 text-slate-500 dark:text-white/70 leading-relaxed text-sm md:text-lg hidden md:block">
             By participating, you're not just running a race — you're embracing a lifestyle and joining a community that

@@ -11,7 +11,7 @@ function isMultiStatement(sql) {
 }
 
 /**
- * Database layer for Run Beyond Limits 2026.
+ * Database layer for Infinity Marathon 2027 – Run Beyond Limits.
  *
  * Backends:
  *   - PGlite (embedded PostgreSQL, WASM)  -> used when no reachable server

@@ -5,8 +5,8 @@ import BibPickupSection from "@/components/marathon/BibPickupSection";
 export const Route = createFileRoute("/contact")({
   head: () => ({
     meta: [
-      { title: "Contact · Run Beyond Limits 2026" },
-      { name: "description", content: "Get in touch with the Run Beyond Limits team for registration, partnerships and support." },
+      { title: "Contact · Infinity Marathon 2027" },
+      { name: "description", content: "Get in touch with the Infinity Marathon 2027 team for registration, city schedules, partnerships and support." },
     ],
   }),
   component: ContactPage,

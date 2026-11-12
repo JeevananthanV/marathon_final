@@ -11,6 +11,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import type { ReportRow, Participant } from "./types";
+import { getRaceFee, getCityById } from "@/data/marathon";
 import { motion } from "framer-motion";
 import { useMemo } from "react";
 
@@ -25,16 +26,14 @@ export function ReportsTab({ reportData, revenueByCity, revenueByRace, participa
   const cityPerformance = useMemo(() => {
     const cities: Record<string, { registered: number; paid: number; pending: number; revenue: number }> = {};
     participants.forEach((p) => {
-      const cityKey = p.cityId ? p.cityId.charAt(0).toUpperCase() + p.cityId.slice(1) : "Unknown";
+      const cityKey = p.cityId ? getCityById(p.cityId).name : "Unknown";
       if (!cities[cityKey]) {
         cities[cityKey] = { registered: 0, paid: 0, pending: 0, revenue: 0 };
       }
       cities[cityKey].registered++;
       if (p.paymentStatus === "Paid") {
         cities[cityKey].paid++;
-        const rId = (p.raceId || "").toLowerCase();
-        const price = { "5k": 499, "10k": 799, "21k": 999 }[rId] || 0;
-        cities[cityKey].revenue += price;
+        cities[cityKey].revenue += getRaceFee(p.cityId, p.raceId);
       } else {
         cities[cityKey].pending++;
       }
@@ -110,30 +109,37 @@ export function ReportsTab({ reportData, revenueByCity, revenueByRace, participa
             <PremiumBadge variant="primary" size="sm">Live</PremiumBadge>
           </CardHeader>
           <CardContent className="pt-2">
-            <div className="h-56">
-              {cityChartData.map((city, i) => (
-                <motion.div
-                  key={city.name}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.5, delay: 0.1 + i * 0.08, ease: [0.16, 1, 0.3, 1] }}
-                  className="mb-3"
-                >
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-sm font-medium text-foreground">{city.name}</span>
-                    <span className="font-display text-sm font-black text-foreground">₹{city.revenue.toLocaleString("en-IN")}</span>
-                  </div>
-                  <div className="relative h-2 bg-white/10 rounded-full overflow-hidden">
+            <div className="max-h-64 overflow-y-auto pr-1">
+              {cityChartData.length === 0 ? (
+                <p className="text-xs text-muted-foreground py-8 text-center">No paid city registrations yet.</p>
+              ) : (
+                cityChartData.map((city, i) => {
+                  const maxRev = Math.max(1, ...revenueByCity.map((c) => c.revenue));
+                  return (
                     <motion.div
-                      initial={{ width: 0 }}
-                      animate={{ width: `${(city.revenue / Math.max(...revenueByCity.map(c => c.revenue))) * 100}%` }}
-                      transition={{ duration: 1, delay: 0.2 + i * 0.08, ease: [0.16, 1, 0.3, 1] }}
-                      className="h-full rounded-full relative overflow-hidden"
-                      style={{ background: `linear-gradient(90deg, ${city.fill}, ${city.fill}dd)` }}
-                    />
-                  </div>
-                </motion.div>
-              ))}
+                      key={city.name}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ duration: 0.5, delay: 0.1 + i * 0.05, ease: [0.16, 1, 0.3, 1] }}
+                      className="mb-3"
+                    >
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-sm font-medium text-foreground">{city.name}</span>
+                        <span className="font-display text-sm font-black text-foreground">₹{city.revenue.toLocaleString("en-IN")}</span>
+                      </div>
+                      <div className="relative h-2 bg-white/10 rounded-full overflow-hidden">
+                        <motion.div
+                          initial={{ width: 0 }}
+                          animate={{ width: `${(city.revenue / maxRev) * 100}%` }}
+                          transition={{ duration: 1, delay: 0.2 + i * 0.05, ease: [0.16, 1, 0.3, 1] }}
+                          className="h-full rounded-full relative overflow-hidden"
+                          style={{ background: `linear-gradient(90deg, ${city.fill}, ${city.fill}dd)` }}
+                        />
+                      </div>
+                    </motion.div>
+                  );
+                })
+              )}
             </div>
             <div className="grid grid-cols-3 gap-3 mt-4 pt-4 border-t border-border/40 dark:border-white/10">
               <div className="text-center p-3 rounded-xl bg-primary/10">
@@ -141,7 +147,9 @@ export function ReportsTab({ reportData, revenueByCity, revenueByRace, participa
                 <div className="text-xs text-muted-foreground">Active Cities</div>
               </div>
               <div className="text-center p-3 rounded-xl bg-success/10">
-                <div className="font-display text-xl font-black text-success">₹{Math.max(...revenueByCity.map(c => c.revenue)).toLocaleString("en-IN")}</div>
+                <div className="font-display text-xl font-black text-success">
+                  ₹{(revenueByCity.length > 0 ? Math.max(...revenueByCity.map((c) => c.revenue)) : 0).toLocaleString("en-IN")}
+                </div>
                 <div className="text-xs text-muted-foreground">Top City</div>
               </div>
               <div className="text-center p-3 rounded-xl bg-accent/10">
@@ -175,15 +183,15 @@ export function ReportsTab({ reportData, revenueByCity, revenueByRace, participa
                     <span className="text-sm font-medium text-foreground">{race.name}</span>
                     <span className="font-display text-sm font-black text-foreground">₹{race.revenue.toLocaleString("en-IN")}</span>
                   </div>
-                  <div className="relative h-2 bg-white/10 rounded-full overflow-hidden">
-                    <motion.div
-                      initial={{ width: 0 }}
-                      animate={{ width: `${(race.revenue / Math.max(...revenueByRace.map(r => r.revenue))) * 100}%` }}
-                      transition={{ duration: 1, delay: 0.2 + i * 0.1, ease: [0.16, 1, 0.3, 1] }}
-                      className="h-full rounded-full relative overflow-hidden"
-                      style={{ background: `linear-gradient(90deg, ${race.fill}, ${race.fill}dd)` }}
-                    />
-                  </div>
+                      <div className="relative h-2 bg-white/10 rounded-full overflow-hidden">
+                        <motion.div
+                          initial={{ width: 0 }}
+                          animate={{ width: `${(race.revenue / Math.max(1, ...revenueByRace.map((r) => r.revenue))) * 100}%` }}
+                          transition={{ duration: 1, delay: 0.2 + i * 0.1, ease: [0.16, 1, 0.3, 1] }}
+                          className="h-full rounded-full relative overflow-hidden"
+                          style={{ background: `linear-gradient(90deg, ${race.fill}, ${race.fill}dd)` }}
+                        />
+                      </div>
                 </motion.div>
               ))}
             </div>

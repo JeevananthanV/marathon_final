@@ -5,13 +5,13 @@ import {
   MapPin, Calendar, Clock, AlertCircle, CheckCircle2, User, Shirt, Phone 
 } from "lucide-react";
 import { toast } from "sonner";
-import { RACES, CITIES, EVENT } from "@/data/marathon";
+import { RACES, CITIES, EVENT, getRaceFee, getCityById, getRaceById } from "@/data/marathon";
 
 export const Route = createFileRoute("/checkout-summary")({
   head: () => ({
     meta: [
-      { title: "Checkout & Order Summary · Run Beyond Limits 2026" },
-      { name: "description", content: "Review your registration details and complete secure checkout via Razorpay Standard Checkout." },
+      { title: "Checkout & Order Summary · Infinity Marathon 2027" },
+      { name: "description", content: "Review your registration details and complete secure checkout via Razorpay Standard Checkout for Infinity Marathon 2027." },
     ],
   }),
   component: CheckoutSummaryPage,
@@ -54,12 +54,12 @@ function CheckoutSummaryPage() {
           dob: "1996-08-15",
           gender: "Male",
           tshirtSize: "L",
-          categoryId: "10k",
-          cityId: "chennai",
-          address: "124 Marina Coast Highway",
-          city: "Chennai",
-          state: "Tamil Nadu",
-          pincode: "600001",
+          categoryId: "5k",
+          cityId: "vadodara",
+          address: "Akota Stadium & Sayaji Baug Corridor",
+          city: "Vadodara",
+          state: "Gujarat",
+          pincode: "390001",
           emergencyContact: "+91 98765 43211",
           emergencyContactName: "Jane Doe (Spouse)",
           medicalDeclaration: "None / Fit to run",
@@ -69,16 +69,16 @@ function CheckoutSummaryPage() {
   }, []);
 
   const race = useMemo(() => {
-    const catId = data?.categoryId || data?.raceId || "10k";
-    return RACES.find((r) => r.id === catId) || RACES[1];
+    const catId = data?.categoryId || data?.raceId || "5k";
+    return getRaceById(catId);
   }, [data]);
 
   const city = useMemo(() => {
-    const cId = data?.cityId || "chennai";
-    return CITIES.find((c) => c.id === cId) || CITIES[0];
+    const cId = data?.cityId || "vadodara";
+    return getCityById(cId);
   }, [data]);
 
-  const basePrice = Number(race.fee) || 799;
+  const basePrice = getRaceFee(city.id, race.id);
   const platformFee = 0; // Transparent zero fee
   const totalAmount = basePrice + platformFee;
 
@@ -123,8 +123,8 @@ function CheckoutSummaryPage() {
         key: serverOrder.keyId || "your_razorpay_test_key_id",
         amount: serverOrder.amount, // Subunit calculated denomination (paise)
         currency: serverOrder.currency || "INR",
-        name: "Run Beyond Limits 2026",
-        description: `Registration fee for ${race.distance} KM ${race.type}`,
+        name: EVENT.name,
+        description: `${city.name} · ${race.distance} KM ${race.type} (₹${basePrice})`,
         image: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/e5ecaf9f-b5d0-45c0-9e3c-1fbdec4ad95c/id-preview-cd4fab79--f4afad68-ee54-4656-81c8-41650b828d4e.lovable.app-1784613300369.png",
         order_id: serverOrder.order_id || serverOrder.id,
         handler: async function (paymentResponse: {
@@ -286,7 +286,7 @@ function CheckoutSummaryPage() {
                 </div>
                 <div className="text-right">
                   <span className="text-xs text-slate-400 block font-semibold">Entry Ticket</span>
-                  <span className="font-display text-2xl font-black text-[#e9387c]">₹{race.fee}</span>
+                  <span className="font-display text-2xl font-black text-[#e9387c]">₹{basePrice}</span>
                 </div>
               </div>
 
@@ -294,7 +294,7 @@ function CheckoutSummaryPage() {
                 <div>
                   <span className="text-slate-400 block font-medium">Event Date</span>
                   <span className="font-bold text-charcoal flex items-center gap-1 mt-0.5">
-                    <Calendar className="h-3 w-3 text-[#e9387c]" /> {EVENT.date}
+                    <Calendar className="h-3 w-3 text-[#e9387c]" /> {city.date}
                   </span>
                 </div>
                 <div>

@@ -6,8 +6,8 @@ import bgImg from "@/assets/background.png";
 export const Route = createFileRoute("/gallery")({
   head: () => ({
     meta: [
-      { title: "Gallery · Run Beyond Limits 2026" },
-      { name: "description", content: "Moments from previous Run Beyond Limits events." },
+      { title: "Gallery · Infinity Marathon 2027" },
+      { name: "description", content: "Moments from Infinity Marathon events across India." },
     ],
   }),
   component: GalleryPage,

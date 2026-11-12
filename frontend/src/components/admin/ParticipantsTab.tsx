@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { Participant } from "./types";
 import { PremiumAvatar, TrendBadge } from "./PremiumUI";
+import { CITIES, RACES } from "@/data/marathon";
 
 
 interface ParticipantsTabProps {
@@ -148,9 +149,9 @@ export function ParticipantsTab({
                   style={{ backgroundColor: "var(--popover)", color: "var(--popover-foreground)", borderColor: "var(--border)" }}
                 >
                   <SelectItem value="__all__">All Cities</SelectItem>
-                  <SelectItem value="salem">Salem</SelectItem>
-                  <SelectItem value="bengaluru">Bengaluru</SelectItem>
-                  <SelectItem value="chennai">Chennai</SelectItem>
+                  {CITIES.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
               <Select value={raceFilter || "__all__"} onValueChange={(v) => setRaceFilter(v === "__all__" ? "" : v)}>
@@ -165,9 +166,9 @@ export function ParticipantsTab({
                   style={{ backgroundColor: "var(--popover)", color: "var(--popover-foreground)", borderColor: "var(--border)" }}
                 >
                   <SelectItem value="__all__">All Races</SelectItem>
-                  <SelectItem value="5k">5K</SelectItem>
-                  <SelectItem value="10k">10K</SelectItem>
-                  <SelectItem value="21k">21K</SelectItem>
+                  {RACES.map((r) => (
+                    <SelectItem key={r.id} value={r.id}>{r.distance}K</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
               <Select value={paymentFilter || "__all__"} onValueChange={(v) => setPaymentFilter(v === "__all__" ? "" : v)}>
@@ -294,9 +295,9 @@ export function ParticipantsTab({
                         variant="outline"
                         className={cn(
                           "font-bold text-[11px] px-2 py-0.5 rounded-lg border",
-                          p.raceId === "21k" && "bg-purple-500/20 text-purple-400 border-purple-500/30",
-                          p.raceId === "10k" && "bg-orange-500/20 text-orange-400 border-orange-500/30",
-                          p.raceId === "5k" && "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
+                          p.raceId === "10k" && "bg-purple-500/20 text-purple-400 border-purple-500/30",
+                          p.raceId === "5k" && "bg-orange-500/20 text-orange-400 border-orange-500/30",
+                          p.raceId === "3k" && "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
                         )}
                       >
                         {p.raceId.toUpperCase()}
@@ -506,9 +507,9 @@ export function ParticipantsTab({
                   variant="outline"
                   className={cn(
                     "font-bold text-[10px] px-2 py-0.5 rounded-lg border shrink-0",
-                    p.raceId === "21k" && "bg-purple-500/20 text-purple-400 border-purple-500/30",
-                    p.raceId === "10k" && "bg-orange-500/20 text-orange-400 border-orange-500/30",
-                    p.raceId === "5k" && "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
+                    p.raceId === "10k" && "bg-purple-500/20 text-purple-400 border-purple-500/30",
+                    p.raceId === "5k" && "bg-orange-500/20 text-orange-400 border-orange-500/30",
+                    p.raceId === "3k" && "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
                   )}
                 >
                   {p.raceId.toUpperCase()}

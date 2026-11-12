@@ -5,16 +5,7 @@ import { useRef } from "react";
 import { HeroParticles } from "@/components/PremiumAnimations";
 import bgImg from "@/assets/hero-bg.jpg";
 import logo from "@/assets/img.png";
-import { EVENT } from "@/data/marathon";
-import chennaiImg from "@/New assests/chennai.webp";
-import bengaluruImg from "@/New assests/bengaluru.webp";
-import salemImg from "@/New assests/salem.webp";
-
-const cities = [
-  { name: "CHENNAI", state: "Tamil Nadu", color: "group-hover:text-rose-500", img: chennaiImg },
-  { name: "BENGALURU", state: "Karnataka", color: "group-hover:text-amber-500", img: bengaluruImg },
-  { name: "SALEM", state: "Tamil Nadu", color: "group-hover:text-emerald-500", img: salemImg },
-];
+import { EVENT, CITIES } from "@/data/marathon";
 
 export default function HeroSection() {
   const sectionRef = useRef<HTMLElement>(null);
@@ -27,7 +18,7 @@ export default function HeroSection() {
       <motion.div className="absolute inset-0 scale-110" style={{ y: bgY }}>
         <img
           src={bgImg}
-          alt="Runners during the Run Beyond Limits marathon"
+          alt="Runners during Infinity Marathon 2027"
           width={1920}
           height={1080}
           className="h-full w-full object-cover object-center"
@@ -59,7 +50,7 @@ export default function HeroSection() {
           >
             <img
               src={logo}
-              alt="Run Beyond Limits"
+              alt={EVENT.name}
               width={400}
               height={160}
               className="h-20 md:h-28 w-auto object-contain drop-shadow-lg"
@@ -79,8 +70,8 @@ export default function HeroSection() {
               transition={{ duration: 0.6, delay: 0.2, ease: "easeOut" }}
               className="font-display text-5xl sm:text-6xl md:text-7xl font-extrabold leading-[1.05] tracking-tight text-white drop-shadow-md"
             >
-              Run Beyond <br />
-              <span className="text-gradient">Limits 2026</span>
+              Infinity <br />
+              <span className="text-gradient">Marathon 2027</span>
             </motion.h1>
             <motion.p
               initial={{ opacity: 0, y: 15 }}
@@ -88,7 +79,7 @@ export default function HeroSection() {
               transition={{ duration: 0.5, delay: 0.35 }}
               className="text-xl md:text-2xl font-semibold text-white/95"
             >
-              Push Your Endurance
+              Run Beyond Limits! · 3K · 5K · 10K
             </motion.p>
             <motion.p
               initial={{ opacity: 0, y: 15 }}
@@ -96,7 +87,7 @@ export default function HeroSection() {
               transition={{ duration: 0.5, delay: 0.45 }}
               className="text-base md:text-lg text-white/70 max-w-xl leading-relaxed"
             >
-              Join thousands of runners across three cities for an unforgettable celebration of health, fitness, resilience and community.
+              Join thousands of runners across 12 host cities in May 2027 for an unforgettable celebration of health, fitness, resilience, and community.
             </motion.p>
 
             <motion.div
@@ -120,29 +111,38 @@ export default function HeroSection() {
             </motion.div>
           </motion.div>
 
-          {/* Right side — City cards cascade in from the right */}
-          <div className="hidden md:flex flex-col gap-5 items-end">
-            {cities.map((city, index) => (
-              <motion.div
-                key={city.name}
-                initial={{ opacity: 0, x: 60 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.6, delay: 0.3 + index * 0.15, ease: "easeOut" }}
-                className="flex items-center justify-between gap-6 rounded-2xl bg-navy/40 backdrop-blur-md ring-1 ring-white/15 px-7 py-4.5 min-w-[310px] hover:translate-x-[-12px] hover:bg-navy/60 hover:ring-white/30 transition-all duration-300 group cursor-pointer shadow-soft hover:shadow-glow relative overflow-hidden"
-              >
-                <img
-                  src={city.img}
-                  alt={city.name}
-                  className="absolute inset-0 h-full w-full object-cover opacity-20 group-hover:opacity-40 transition-opacity duration-300"
-                />
-                <div className="flex items-baseline gap-3 relative z-10">
-                  <span className={`font-city text-4xl md:text-5xl text-white tracking-wide transition-colors duration-300 ${city.color}`}>{city.name}</span>
-                  <span className="text-xs text-white/50 uppercase tracking-widest">{city.state}</span>
-                </div>
-                <div className="h-2 w-2 rounded-full bg-white/30 group-hover:bg-orange group-hover:scale-125 transition-all duration-300 relative z-10" />
-              </motion.div>
-            ))}
-          </div>
+          {/* Right side — 12-City May 2027 Race Calendar */}
+          <motion.div
+            initial={{ opacity: 0, x: 40 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.6, delay: 0.35, ease: "easeOut" }}
+            className="hidden lg:block w-[420px] rounded-3xl bg-navy/55 backdrop-blur-md ring-1 ring-white/15 p-5 shadow-elevated"
+          >
+            <div className="flex items-center justify-between mb-3 pb-2.5 border-b border-white/10">
+              <span className="text-xs font-extrabold uppercase tracking-widest text-orange">City-Wise Race Calendar</span>
+              <span className="text-[11px] font-semibold text-white/70">12 Cities · May 2027</span>
+            </div>
+            <div className="grid grid-cols-2 gap-2 max-h-[380px] overflow-y-auto pr-1">
+              {CITIES.map((city) => (
+                <Link
+                  key={city.id}
+                  to="/register"
+                  search={{ city: city.id } as never}
+                  className="rounded-xl bg-white/5 hover:bg-white/15 ring-1 ring-white/10 hover:ring-orange/60 px-3 py-2.5 transition-all group"
+                >
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="font-bold text-sm text-white group-hover:text-orange transition-colors truncate">
+                      {city.order}. {city.name}
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-white/65 mt-0.5">{city.shortDate}</p>
+                  <p className="text-[10px] font-semibold text-emerald-300 mt-1">
+                    From ₹{city.fees["3k"]}
+                  </p>
+                </Link>
+              ))}
+            </div>
+          </motion.div>
         </div>
 
         {/* Scroll indicator */}

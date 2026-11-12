@@ -27,7 +27,7 @@ export function Logo({ compact = false, inFooter = false }: { compact?: boolean;
     >
       <img
         src={logo}
-        alt="Run Beyond Limits"
+        alt="Infinity Marathon 2027"
         width={280}
         height={80}
         className={`w-auto object-contain transition-transform duration-300 group-hover:scale-105 ${inFooter ? "h-10 max-w-[140px]" : compact ? "h-7" : "h-9 md:h-10"}`}

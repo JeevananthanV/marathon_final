@@ -16,7 +16,7 @@ export default function PressHighlights() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="text-center max-w-2xl mx-auto mb-14">
           <p className="text-navy font-semibold text-sm tracking-widest uppercase">Highlights</p>
-          <h2 className="mt-2 font-display text-3xl md:text-5xl font-extrabold text-charcoal">Run Beyond Limits Highlights</h2>
+          <h2 className="mt-2 font-display text-3xl md:text-5xl font-extrabold text-charcoal">Infinity Marathon 2027 Highlights</h2>
           <div className="mt-4 h-1.5 w-20 mx-auto rounded-full bg-navy" />
         </div>
         <div className="grid gap-6 lg:grid-cols-2">

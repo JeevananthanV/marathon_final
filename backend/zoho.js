@@ -1,4 +1,5 @@
 import dotenv from "dotenv";
+import { EVENT_CONFIG, raceLabel, cityLabel, getFeeInr, getCityDate } from "./marathonConfig.js";
 
 dotenv.config();
 
@@ -109,14 +110,15 @@ function mapParticipantToLead(participant) {
     lastName = nameParts[0];
   }
 
-  const raceLabel = participant.raceId === "5k" ? "5K Fun Run" : participant.raceId === "10k" ? "10K Challenge" : "Half Marathon (21K)";
+  const categoryName = raceLabel(participant.raceId);
+  const fee = getFeeInr(participant.cityId, participant.raceId);
   const description = [
-    `Run Beyond Limits 2026 Registration Details:`,
+    `${EVENT_CONFIG.name} (${EVENT_CONFIG.tagline}) Registration Details:`,
     `- Date of Birth: ${participant.dob || "N/A"}`,
     `- Gender: ${participant.gender || "N/A"}`,
     `- Emergency Contact: ${participant.emergencyContact || "N/A"}`,
-    `- City Route: ${participant.cityId || "N/A"}`,
-    `- Race Category: ${raceLabel}`,
+    `- City Route: ${cityLabel(participant.cityId)} (${getCityDate(participant.cityId)})`,
+    `- Race Category: ${categoryName} (₹${fee})`,
     `- T-Shirt Size: ${participant.size || "N/A"}`,
     `- Payment Status: ${participant.paymentStatus || "Pending"}`,
     `- Payment Txn ID: ${participant.paymentTxnId || "N/A"}`,
@@ -133,7 +135,7 @@ function mapParticipantToLead(participant) {
     City: participant.city || "",
     State: participant.state || "",
     Zip_Code: participant.pincode || "",
-    Company: "Run Beyond Limits 2026", // Lead requires Company field in Zoho CRM
+    Company: EVENT_CONFIG.name, // Lead requires Company field in Zoho CRM
     Lead_Source: "Marathon Website",
     Description: description
   };
@@ -267,7 +269,7 @@ export async function testZohoConnection() {
           {
             First_Name: "Connection",
             Last_Name: "Test",
-            Company: "Run Beyond Limits — API test",
+            Company: `${EVENT_CONFIG.name} — API test`,
             Email: `${marker}@example.com`,
             Lead_Source: "Marathon Website"
           }

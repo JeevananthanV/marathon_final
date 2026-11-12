@@ -1,5 +1,5 @@
 /**
- * Registration automation pipeline for Run Beyond Limits 2026.
+ * Registration automation pipeline for Infinity Marathon 2027 – Run Beyond Limits.
  *
  * Flow (fires automatically after a successful registration):
  *

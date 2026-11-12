@@ -1,8 +1,9 @@
+import { useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { Check, ArrowRight } from "lucide-react";
+import { Check, ArrowRight, Calendar, MapPin } from "lucide-react";
 import { motion } from "framer-motion";
 import { Tilt3D, WordReveal } from "./AnimationUtils";
-import { RACES } from "@/data/marathon";
+import { RACES, CITIES, getCityById, getRaceFee } from "@/data/marathon";
 
 const styles = {
   magenta: {
@@ -29,6 +30,9 @@ const styles = {
 } as const;
 
 export default function RaceCategories() {
+  const [selectedCityId, setSelectedCityId] = useState("vadodara");
+  const selectedCity = getCityById(selectedCityId);
+
   return (
     <section id="races" className="py-10 md:py-24 bg-[#F8FAFC] border-b border-border dots-pattern">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -37,22 +41,53 @@ export default function RaceCategories() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.5 }}
-          className="text-center max-w-2xl mx-auto mb-8 md:mb-16"
+          className="text-center max-w-3xl mx-auto mb-8 md:mb-12"
         >
-          <p className="text-navy font-semibold text-xs tracking-widest uppercase">Race Categories</p>
+          <p className="text-navy font-semibold text-xs tracking-widest uppercase">Race Categories &amp; City-Wise Fees</p>
           <h2 className="mt-2 text-2xl md:text-5xl font-extrabold text-charcoal tracking-tight overflow-hidden">
-            <WordReveal text="Choose Your Challenge" delay={0.1} stagger={0.12} />
+            <WordReveal text="Choose Your City & Challenge" delay={0.1} stagger={0.12} />
           </h2>
           <div className="mt-3 h-1 w-16 mx-auto rounded-full bg-navy" />
-          <p className="mt-3 text-slate-500 text-sm md:text-lg leading-relaxed hidden md:block">
-            Every step counts. Pick the distance that inspires you to go further.
+          <p className="mt-3 text-slate-500 text-sm md:text-lg leading-relaxed">
+            All 12 host cities feature 3K, 5K, and 10K races. Pick a city to view its exact race date and fees.
           </p>
         </motion.div>
+
+        {/* 12-City Selector Pills */}
+        <div className="mb-8 flex flex-wrap justify-center gap-2">
+          {CITIES.map((city) => (
+            <button
+              key={city.id}
+              type="button"
+              onClick={() => setSelectedCityId(city.id)}
+              className={`px-3.5 py-2 rounded-full text-xs font-bold transition-all cursor-pointer border ${
+                selectedCityId === city.id
+                  ? "bg-navy text-white border-navy shadow-soft"
+                  : "bg-white text-slate-600 border-slate-200 hover:border-navy/40 hover:text-navy"
+              }`}
+            >
+              {city.order}. {city.name}
+            </button>
+          ))}
+        </div>
+
+        {/* Selected City Info Strip */}
+        <div className="mb-8 mx-auto max-w-3xl rounded-2xl bg-white border border-slate-200 px-5 py-3.5 shadow-sm flex flex-wrap items-center justify-between gap-3 text-xs md:text-sm">
+          <div className="flex items-center gap-2 font-bold text-charcoal">
+            <MapPin className="h-4 w-4 text-[#e9387c]" />
+            <span>{selectedCity.name} — {selectedCity.venue}</span>
+          </div>
+          <div className="flex items-center gap-2 font-semibold text-navy">
+            <Calendar className="h-4 w-4 text-orange" />
+            <span>{selectedCity.date}</span>
+          </div>
+        </div>
 
         {/* Mobile: compact horizontal cards */}
         <div className="flex flex-col gap-3 md:hidden">
           {RACES.map((r) => {
             const s = styles[r.accent];
+            const fee = getRaceFee(selectedCityId, r.id);
             return (
               <div
                 key={r.id}
@@ -72,9 +107,10 @@ export default function RaceCategories() {
                   <p className="text-[10px] text-slate-400 font-semibold">{r.subtype}</p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="font-display text-base font-black text-charcoal">₹{r.fee}</span>
+                  <span className="font-display text-base font-black text-charcoal">₹{fee}</span>
                   <Link
-                    to="/register" target="_blank" rel="noopener noreferrer"
+                    to="/register"
+                    search={{ city: selectedCityId, race: r.id } as never}
                     className={`inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-[10px] font-bold shadow-soft transition-all ${s.btn}`}
                   >
                     Register <ArrowRight className="h-3 w-3" />
@@ -89,6 +125,7 @@ export default function RaceCategories() {
         <div className="hidden md:grid gap-8 md:grid-cols-3 items-center">
           {RACES.map((r, index) => {
             const s = styles[r.accent];
+            const fee = getRaceFee(selectedCityId, r.id);
             return (
               <motion.div
                 key={r.id}
@@ -115,17 +152,18 @@ export default function RaceCategories() {
 
                     <ul className="mt-8 space-y-3.5 text-sm text-slate-600 border-t border-slate-100 pt-6">
                       <li className="flex items-center gap-3"><Check className="h-4 w-4 text-emerald shrink-0" strokeWidth={3} /> Age {r.minAge}+</li>
-                      <li className="flex items-center gap-3"><Check className="h-4 w-4 text-emerald shrink-0" strokeWidth={3} /> Chip timing</li>
-                      <li className="flex items-center gap-3"><Check className="h-4 w-4 text-emerald shrink-0" strokeWidth={3} /> Medal + T-shirt</li>
+                      <li className="flex items-center gap-3"><Check className="h-4 w-4 text-emerald shrink-0" strokeWidth={3} /> Official BIB &amp; E-Certificate</li>
+                      <li className="flex items-center gap-3"><Check className="h-4 w-4 text-emerald shrink-0" strokeWidth={3} /> Finisher Medal + Dry-Fit Tee</li>
                     </ul>
 
                     <div className="mt-10 flex items-center justify-between gap-4 border-t border-slate-100/60 pt-6">
                       <div>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Registration</p>
-                        <p className="font-display text-3xl font-extrabold text-charcoal">₹{r.fee}</p>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{selectedCity.name} Fee</p>
+                        <p className="font-display text-3xl font-extrabold text-charcoal">₹{fee}</p>
                       </div>
                       <Link
-                        to="/register" target="_blank" rel="noopener noreferrer"
+                        to="/register"
+                        search={{ city: selectedCityId, race: r.id } as never}
                         className={`inline-flex items-center gap-2 rounded-full px-6 py-3 text-sm font-bold shadow-soft transition-all ${s.btn}`}
                       >
                         Register <ArrowRight className="h-4 w-4" />

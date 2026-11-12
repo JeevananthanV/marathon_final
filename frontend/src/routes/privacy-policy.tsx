@@ -5,8 +5,8 @@ import { EVENT } from "@/data/marathon";
 export const Route = createFileRoute("/privacy-policy")({
   head: () => ({
     meta: [
-      { title: "Privacy Policy · Run Beyond Limits 2026" },
-      { name: "description", content: "Privacy policy, data collection disclosures, Razorpay payment security protocols, and media consent clauses for Run Beyond Limits 2026." },
+      { title: "Privacy Policy · Infinity Marathon 2027" },
+      { name: "description", content: "Privacy policy, data collection disclosures, Razorpay payment security protocols, and media consent clauses for Infinity Marathon 2027." },
     ],
   }),
   component: PrivacyPolicyPage,
@@ -26,7 +26,7 @@ function PrivacyPolicyPage() {
             Privacy Policy
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            Effective Date: January 15, 2026 · Compliant with the Information Technology Act, 2000 (India)
+            Effective Date: January 15, 2027 · Compliant with the Information Technology Act, 2000 (India)
           </p>
         </div>
 
@@ -36,7 +36,7 @@ function PrivacyPolicyPage() {
             <Lock className="h-5 w-5 text-emerald shrink-0 mt-0.5" />
             <div className="text-xs md:text-sm text-slate-700 leading-relaxed">
               <strong className="text-charcoal font-semibold block mb-0.5">Zero-Card-Storage Guarantee</strong>
-              Run Beyond Limits does <strong>never store or capture</strong> credit/debit card numbers, CVVs, or UPI PINs on its application servers. All monetary transactions are processed through end-to-end tokenized, PCI-DSS Level 1 certified gateways by <strong>Razorpay Software Private Limited</strong>.
+              Infinity Marathon does <strong>never store or capture</strong> credit/debit card numbers, CVVs, or UPI PINs on its application servers. All monetary transactions are processed through end-to-end tokenized, PCI-DSS Level 1 certified gateways by <strong>Razorpay Software Private Limited</strong>.
             </div>
           </div>
         </div>
@@ -51,7 +51,7 @@ function PrivacyPolicyPage() {
               Scope & Overview
             </h2>
             <p className="mt-3">
-              This Privacy Policy explains how <strong>InfinityMiles Sports & Events Foundation</strong> ("We", "Our", or "Us") collects, processes, stores, and protects personal information gathered through the <strong>Run Beyond Limits 2026</strong> marathon registration portal ({EVENT.name}). We are committed to maintaining the highest privacy standards in compliance with the Indian Information Technology Act, 2000 and the Information Technology (Reasonable Security Practices and Procedures and Sensitive Personal Data or Information) Rules, 2011.
+              This Privacy Policy explains how <strong>InfinityMiles Sports & Events Foundation</strong> ("We", "Our", or "Us") collects, processes, stores, and protects personal information gathered through the <strong>{EVENT.name}</strong> marathon registration portal ({EVENT.name}). We are committed to maintaining the highest privacy standards in compliance with the Indian Information Technology Act, 2000 and the Information Technology (Reasonable Security Practices and Procedures and Sensitive Personal Data or Information) Rules, 2011.
             </p>
           </section>
 

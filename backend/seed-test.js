@@ -1,5 +1,6 @@
 import dotenv from "dotenv";
 import { run, close } from "./db.js";
+import { CITIES, RACE_IDS, getFeeInr } from "./marathonConfig.js";
 
 dotenv.config();
 
@@ -14,17 +15,11 @@ const names = [
   "Lavanya Prasad"
 ];
 
-const cities = ["chennai", "bengaluru", "salem"];
-const cityNames = { chennai: "Chennai", bengaluru: "Bengaluru", salem: "Salem" };
-const states = { chennai: "Tamil Nadu", bengaluru: "Karnataka", salem: "Tamil Nadu" };
-const pincodeRanges = { chennai: 600000, bengaluru: 560000, salem: 636000 };
-const races = ["5k", "10k", "21k"];
 const sizes = ["XS", "S", "M", "L", "XL", "XXL"];
 const genders = ["Male", "Female"];
 
-function random(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 function registrationDate(index) {
-  const start = new Date("2026-06-01T09:00:00");
+  const start = new Date("2027-01-15T09:00:00");
   return new Date(start.getTime() + index * 1000 * 60 * 60 * 13).toISOString();
 }
 
@@ -39,13 +34,14 @@ async function seed() {
     "size", "cityId", "raceId", "paymentStatus", "paymentTxnId", "bibNumber", "registrationDate"
   ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
-  const docs = Array.from({ length: 100 }, (_, i) => {
+  const docs = Array.from({ length: 120 }, (_, i) => {
     const name = names[i % names.length];
-    const city = cities[i % cities.length];
-    const race = races[i % races.length];
+    const cityCfg = CITIES[i % CITIES.length];
+    const race = RACE_IDS[i % RACE_IDS.length];
     const paid = i % 10 < 8;
-    const cityPrefix = city.substring(0, 3).toUpperCase();
+    const cityPrefix = cityCfg.bibPrefix;
     const racePrefix = race.toUpperCase();
+    const fee = getFeeInr(cityCfg.id, race);
     return {
       fullName: name,
       dob: `199${i % 10}-${String((i % 12) + 1).padStart(2, "0")}-${String((i % 28) + 1).padStart(2, "0")}`,
@@ -53,15 +49,15 @@ async function seed() {
       phone: String(7000000000 + i * 7919),
       email: `${name.toLowerCase().replace(/\s+/g, ".")}.${i + 1}@example.com`,
       emergencyContact: String(8000000000 + i * 5639),
-      address: `${(i % 190) + 1}, ${["Main Road", "Lake View Street", "Race Course Road", "Park Avenue", "Green Layout"][i % 5]}, ${cityNames[city]}`,
-      city: cityNames[city],
-      state: states[city],
-      pincode: String(pincodeRanges[city] + (i % 90)),
+      address: `${(i % 190) + 1}, ${["Main Road", "Lake View Street", "Race Course Road", "Park Avenue", "Green Layout"][i % 5]}, ${cityCfg.name}`,
+      city: cityCfg.name,
+      state: cityCfg.state,
+      pincode: String(Number(cityCfg.defaultPincode) + (i % 90)),
       size: sizes[i % sizes.length],
-      cityId: city,
+      cityId: cityCfg.id,
       raceId: race,
       paymentStatus: paid ? "Paid" : "Pending",
-      paymentTxnId: paid ? `TXN-${Date.now() + i * 1000}-${i}` : "",
+      paymentTxnId: paid ? `TXN-${Date.now() + i * 1000}-${i}-INR${fee}` : "",
       bibNumber: paid ? `${cityPrefix}-${racePrefix}-${String(i + 1).padStart(4, "0")}` : "",
       registrationDate: registrationDate(i),
     };

@@ -6,7 +6,7 @@ import { EVENT } from "@/data/marathon";
 export const Route = createFileRoute("/status/failure")({
   head: () => ({
     meta: [
-      { title: "Payment Incomplete · Run Beyond Limits 2026" },
+      { title: "Payment Incomplete · Infinity Marathon 2027" },
       { name: "description", content: "Your payment was not completed or was dropped. You can easily retry your checkout." },
     ],
   }),
@@ -81,7 +81,7 @@ function PaymentFailurePage() {
 
             <a
               href={`https://wa.me/911234567890?text=${encodeURIComponent(
-                `Hi, my payment for Run Beyond Limits 2026 was dropped. Order ID: ${orderId}`
+                `Hi, my payment for ${EVENT.name} was dropped. Order ID: ${orderId}`
               )}`}
               target="_blank"
               rel="noopener noreferrer"

@@ -16,7 +16,7 @@ import { DeleteModal } from "@/components/admin/DeleteModal";
 import type { Participant } from "@/components/admin/types";
 
 export const Route = createFileRoute("/admin")({
-  head: () => ({ meta: [{ title: "Admin Panel · Run Beyond Limits 2026" }] }),
+  head: () => ({ meta: [{ title: "Admin Panel · Infinity Marathon 2027" }] }),
   component: AdminPage,
 });
 

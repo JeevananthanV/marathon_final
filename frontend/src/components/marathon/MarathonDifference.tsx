@@ -19,7 +19,7 @@ export default function MarathonDifference() {
       <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="text-center max-w-2xl mx-auto mb-16">
           <p className="text-white/70 font-semibold text-sm tracking-widest uppercase">The Difference</p>
-          <h2 className="mt-3 font-display text-3xl md:text-5xl lg:text-6xl font-extrabold">What Makes Run Beyond Limits Different?</h2>
+          <h2 className="mt-3 font-display text-3xl md:text-5xl lg:text-6xl font-extrabold">What Makes Infinity Marathon 2027 Different?</h2>
           <div className="mt-4 h-1.5 w-20 mx-auto rounded-full bg-white/40" />
         </div>
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">

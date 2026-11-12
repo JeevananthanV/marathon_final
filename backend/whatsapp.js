@@ -1,5 +1,5 @@
 /**
- * Unified WhatsApp gateway for Run Beyond Limits 2026.
+ * Unified WhatsApp gateway for Infinity Marathon 2027 – Run Beyond Limits.
  *
  * Sends registration / payment messages automatically. Channels are tried in
  * order and the first working one wins:
@@ -21,6 +21,7 @@ import fs from "fs";
 import { execFileSync } from "child_process";
 import dotenv from "dotenv";
 import QRCode from "qrcode";
+import { EVENT_CONFIG, raceLabel, cityLabel, getFeeInr, getCityDate } from "./marathonConfig.js";
 
 dotenv.config();
 
@@ -406,19 +407,17 @@ export async function sendWhatsAppMessage(phone, message) {
 /* Domain messages                                                     */
 /* ------------------------------------------------------------------ */
 
-export const raceLabel = (raceId) =>
-  raceId === "5k" ? "5K Fun Run" : raceId === "10k" ? "10K Challenge" : "Half Marathon (21K)";
-
-export const cityLabel = (cityId) =>
-  String(cityId || "").charAt(0).toUpperCase() + String(cityId || "").slice(1);
+export { raceLabel, cityLabel };
 
 export function buildRegistrationMessage(participant) {
+  const fee = getFeeInr(participant.cityId, participant.raceId);
   return `Hello ${participant.fullName}! 🎉
 
-You have successfully registered for *Run Beyond Limits 2026*.
+You have successfully registered for *${EVENT_CONFIG.name}* (${EVENT_CONFIG.tagline}).
 
 📍 City: ${cityLabel(participant.cityId)}
-🏃 Category: ${raceLabel(participant.raceId)}
+📅 Race Date: ${getCityDate(participant.cityId)}
+🏃 Category: ${raceLabel(participant.raceId)} (₹${fee})
 👕 T-Shirt: ${participant.size}
 
 Your registration is confirmed and your spot is reserved. Payment instructions will be sent to your email shortly.
@@ -427,25 +426,26 @@ Once payment is confirmed you will receive your *BIB number* and a link to downl
 
 See you on race day! 💪
 
-— Run Beyond Limits 2026 Team`;
+— ${EVENT_CONFIG.name} Team`;
 }
 
 export function buildPaymentMessage(participant, baseUrl) {
   const link = `${baseUrl}/api/certificate/download/${participant._id}`;
   return `Congratulations ${participant.fullName}! 🎉
 
-Your payment for *Run Beyond Limits 2026* is confirmed.
+Your payment for *${EVENT_CONFIG.name}* is confirmed.
 
 🏅 BIB Number: *${participant.bibNumber}*
 🏃 Category: ${raceLabel(participant.raceId)}
 📍 City: ${cityLabel(participant.cityId)}
+📅 Race Date: ${getCityDate(participant.cityId)}
 
 🏆 Your finisher certificate is ready:
 ${link}
 
 See you on race day! 🏁
 
-— Run Beyond Limits 2026 Team`;
+— ${EVENT_CONFIG.name} Team`;
 }
 
 export async function sendRegistrationWhatsApp(participant) {
@@ -548,7 +548,7 @@ export async function sendWhatsAppImage(phone, imageBuffer, filename, caption) {
   // 3. Twilio — no public URL for the QR, so send the details/link as text
   if (twilioConfigured()) {
     try {
-      const r = await sendViaTwilio(to, caption || "Entry QR — Run Beyond Limits 2026");
+      const r = await sendViaTwilio(to, caption || `Entry QR — ${EVENT_CONFIG.name}`);
       console.log(`[WhatsApp] QR details sent to ${to} via Twilio (sid: ${r.sid})`);
       return { ok: true, provider: "twilio", to, id: r.sid, textOnly: true };
     } catch (err) {
@@ -567,17 +567,18 @@ export function buildVerifyUrl(participant) {
   return `${base}/verify?code=${encodeURIComponent(participant?.verifyCode || "")}`;
 }
 
-/** Short human-readable registration id, e.g. RBL-00266. */
+/** Short human-readable registration id, e.g. INF-00266. */
 export function regId(participant) {
-  return `RBL-${String(participant?._id ?? 0).padStart(5, "0")}`;
+  return `INF-${String(participant?._id ?? 0).padStart(5, "0")}`;
 }
 
 /** Text that travels with the QR image (readable even without scanning). */
 export function buildQrCaption(participant) {
-  return `🎟️ *Entry QR — Run Beyond Limits 2026*
+  return `🎟️ *Entry QR — ${EVENT_CONFIG.name}*
 
 Name: ${participant.fullName}
 Registration ID: ${regId(participant)}
+City: ${cityLabel(participant.cityId)} (${getCityDate(participant.cityId)})
 T-Shirt: ${participant.size}
 Category: ${raceLabel(participant.raceId)}
 
@@ -588,12 +589,14 @@ ${buildVerifyUrl(participant)}`;
 
 /** ONE message after registration: confirmation text + entry QR in a single WhatsApp. */
 export function buildRegistrationQrCaption(participant) {
+  const fee = getFeeInr(participant.cityId, participant.raceId);
   return `Hello ${participant.fullName}! 🎉
 
-You have successfully registered for *Run Beyond Limits 2026*.
+You have successfully registered for *${EVENT_CONFIG.name}* (${EVENT_CONFIG.tagline}).
 
 📍 City: ${cityLabel(participant.cityId)}
-🏃 Category: ${raceLabel(participant.raceId)}
+📅 Race Date: ${getCityDate(participant.cityId)}
+🏃 Category: ${raceLabel(participant.raceId)} (₹${fee})
 👕 T-Shirt: ${participant.size}
 
 Your registration is confirmed and your spot is reserved. Payment instructions will be sent to your email shortly.
@@ -605,18 +608,18 @@ Registration ID: ${regId(participant)}
 Show this QR at the registration booth on race day for instant verification.
 
 See you on race day! 💪
-— Run Beyond Limits 2026 Team`;
+— ${EVENT_CONFIG.name} Team`;
 }
 
 /** Sent automatically right after the booth verifies the runner. */
 export function buildVerificationMessage(participant) {
   return `✅ *Verification successful!*
 
-Hi ${participant.fullName}, your identity has been verified for *Run Beyond Limits 2026*.
+Hi ${participant.fullName}, your identity has been verified for *${EVENT_CONFIG.name}*.
 
 You're all set — see you at the start line! 🏁
 
-— Run Beyond Limits 2026 Team`;
+— ${EVENT_CONFIG.name} Team`;
 }
 
 /** Generate the runner's entry QR and send it — fires right after registration. */
@@ -630,7 +633,7 @@ export async function sendVerifyQrWhatsApp(participant, caption) {
   return sendWhatsAppImage(
     participant.phone,
     buffer,
-    `rbl-entry-qr-${participant._id ?? "new"}.png`,
+    `infinity-entry-qr-${participant._id ?? "new"}.png`,
     caption || buildQrCaption(participant)
   );
 }

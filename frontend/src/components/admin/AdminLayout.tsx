@@ -59,12 +59,12 @@ function SidebarContent({ tab, setTab, onLogout, participantCount, onNavClick }:
       <div className="flex h-16 items-center gap-3 px-4 border-b border-border/40 dark:border-white/10">
         <div className="relative">
           <div className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-primary to-secondary text-base font-black text-white shadow-lg shadow-primary/25">
-            R
+            ∞
           </div>
           <div className="absolute -bottom-1 -right-1 h-3 w-3 rounded-full bg-success border-2 border-card dark:border-slate-900 animate-pulse-soft" />
         </div>
         <div>
-          <p className="text-sm font-extrabold tracking-tight text-foreground dark:text-white">RUN BEYOND</p>
+          <p className="text-sm font-extrabold tracking-tight text-foreground dark:text-white">INFINITY MARATHON</p>
           <p className="text-[10px] font-bold tracking-[0.2em] text-primary uppercase">Admin Console</p>
         </div>
       </div>

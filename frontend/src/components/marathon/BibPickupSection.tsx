@@ -6,15 +6,15 @@ import SectionHeader from "./SectionHeader";
 const cards = [
   {
     title: "Bib Collection",
-    location: "Run Beyond Limits Expo",
-    date: "September 26, 2026",
+    location: "Infinity Marathon Expo",
+    date: "1–2 Days Prior to City Race Day",
     time: "10:00 AM - 7:00 PM",
     address: "At your registered city venue"
   },
   {
     title: "Race Day Helpdesk",
-    location: "Event Venue",
-    date: "September 27, 2026",
+    location: "Host City Event Venue",
+    date: "May 2027 (City-Wise Calendar)",
     time: "4:30 AM onwards",
   },
 ];

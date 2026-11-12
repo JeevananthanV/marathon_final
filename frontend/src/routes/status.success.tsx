@@ -6,14 +6,14 @@ import {
   QrCode, Printer, Package, Shirt, AlertCircle
 } from "lucide-react";
 import { motion } from "framer-motion";
-import { EVENT, CITIES, RACES } from "@/data/marathon";
+import { EVENT, CITIES, RACES, getCityById, getRaceById } from "@/data/marathon";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/status/success")({
   head: () => ({
     meta: [
-      { title: "Registration Confirmed! · Run Beyond Limits 2026" },
-      { name: "description", content: "Your marathon registration, allocated Bib number, and official scannable entry ticket have been confirmed." },
+      { title: "Registration Confirmed! · Infinity Marathon 2027" },
+      { name: "description", content: "Your Infinity Marathon 2027 registration, allocated Bib number, and official scannable entry ticket have been confirmed." },
     ],
   }),
   validateSearch: (search: Record<string, unknown>) => ({
@@ -46,20 +46,20 @@ function generateIcsCalendar(runnerName: string, raceTitle: string, venue: strin
   const icsContent = [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
-    "PRODID:-//Run Beyond Limits//Marathon Event//EN",
+    `PRODID:-//${EVENT.name}//Marathon Event//EN`,
     "CALSCALE:GREGORIAN",
     "METHOD:PUBLISH",
     "BEGIN:VEVENT",
-    `SUMMARY:Run Beyond Limits 2026 - ${raceTitle}`,
+    `SUMMARY:${EVENT.name} - ${raceTitle}`,
     `DESCRIPTION:Official Race Day for ${runnerName}. Assemble at 5:00 AM. Flag-off at 5:30 AM. Wear your official bib number and technical t-shirt.`,
     `LOCATION:${venue}`,
-    "DTSTART:20260927T000000Z",
-    "DTEND:20260927T060000Z",
+    "DTSTART:20270501T000000Z",
+    "DTEND:20270501T060000Z",
     "STATUS:CONFIRMED",
     "BEGIN:VALARM",
     "TRIGGER:-PT24H",
     "ACTION:DISPLAY",
-    "DESCRIPTION:Reminder: Run Beyond Limits 2026 tomorrow at 5:00 AM!",
+    `DESCRIPTION:Reminder: ${EVENT.name} tomorrow at 5:00 AM!`,
     "END:VALARM",
     "END:VEVENT",
     "END:VCALENDAR",
@@ -69,7 +69,7 @@ function generateIcsCalendar(runnerName: string, raceTitle: string, venue: strin
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = `Run_Beyond_Limits_2026_${raceTitle.replace(/\s+/g, "_")}.ics`;
+  link.download = `Infinity_Marathon_2027_${raceTitle.replace(/\s+/g, "_")}.ics`;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
@@ -101,11 +101,11 @@ function PaymentSuccessPage() {
       .finally(() => setLoading(false));
   }, [orderOrParticipantId]);
 
-  const race = RACES.find((r) => r.id === (data?.raceId || "10k")) || RACES[1];
-  const city = CITIES.find((c) => c.id === (data?.cityId || "chennai")) || CITIES[0];
+  const race = getRaceById(data?.raceId || "5k");
+  const city = getCityById(data?.cityId || "vadodara");
 
   const runnerName = data?.fullName || "Runner";
-  const bib = data?.bibNumber || "CHE-10K-0001";
+  const bib = data?.bibNumber || `${city.bibPrefix}-5K-0001`;
   const paymentId = data?.paymentTxnId || "pay_razorpay_verified";
   const orderId = data?.orderId || orderOrParticipantId || "order_confirmed";
   const ticketPdfUrl = data?.ticketPdfUrl || `/api/v1/marathon/ticket-pdf/${data?.participantId || orderOrParticipantId}`;
@@ -151,10 +151,10 @@ function PaymentSuccessPage() {
                   OFFICIAL RUNNER PASS &amp; KIT VOUCHER
                 </span>
                 <span className="font-display text-2xl md:text-3xl font-black tracking-tight text-white">
-                  RUN BEYOND LIMITS 2026
+                  {EVENT.upperName}
                 </span>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  Sunday, September 27, 2026 · Flag-off: 5:30 AM · Assembly: 5:00 AM
+                  {city.date} · Flag-off: {city.flagOff} · Assembly: 5:00 AM
                 </p>
               </div>
 
@@ -205,7 +205,7 @@ function PaymentSuccessPage() {
                   <div>
                     <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Kit Distribution</span>
                     <span className="inline-flex items-center gap-1.5 font-bold text-xs mt-1 bg-amber-50 text-amber-800 border border-amber-200 px-2.5 py-1 rounded-lg">
-                      <Package className="h-3.5 w-3.5" /> Expo Desk (Sept 25-26)
+                      <Package className="h-3.5 w-3.5" /> Expo Desk ({city.expoDates})
                     </span>
                   </div>
                 </div>
@@ -248,7 +248,7 @@ function PaymentSuccessPage() {
           <div className="mt-6 rounded-2xl bg-amber-50 border border-amber-200 p-4 text-left flex items-start gap-3">
             <AlertCircle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
             <div className="text-xs text-amber-900 leading-relaxed">
-              <strong>Bib &amp; T-Shirt Expo Collection:</strong> Your running T-shirt (Size: {data?.size || "M"}), RFID timing bib ({bib}), and goodie kit must be collected at the Pre-Event Expo on <strong>September 25–26, 2026 (10:00 AM – 7:00 PM)</strong>. Please carry this pass and a valid Government Photo ID. No kit distribution on race morning!
+              <strong>Bib &amp; T-Shirt Expo Collection:</strong> Your running T-shirt (Size: {data?.size || "M"}), RFID timing bib ({bib}), and goodie kit must be collected at the Pre-Event Expo in {city.name} on <strong>{city.expoDates} (10:00 AM – 7:00 PM)</strong> at {city.venue}. Please carry this pass and a valid Government Photo ID. No kit distribution on race morning!
             </div>
           </div>
 
