@@ -125,3 +125,4 @@ The optimized production output will be located in `frontend/dist/`.
 
 - **Port in use (5175)**: Run `npm run dev -- --port 5176` or specify any open port.
 - **BIB Generator font rendering**: Ensure the system has standard Unicode fonts installed or let Vite bundle the local SVG canvas assets.
+
